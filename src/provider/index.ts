@@ -248,37 +248,33 @@ export const sigmaProvider = (
 						// Update user record with selected identity's profile data
 						if (options?.getPool) {
 							const pool = options.getPool();
-							const client = await pool.connect();
-							try {
-								// Query profile table for selected identity
-								const profileResult = await client.query<{
-									bap_id: string;
-									name: string;
-									image: string | null;
-									member_pubkey: string | null;
-								}>(
-									"SELECT bap_id, name, image, member_pubkey FROM profile WHERE bap_id = $1 AND user_id = $2 LIMIT 1",
-									[selectedBapId, userId],
-								);
+							// Use pool.query() directly to avoid connect/release pattern
+							// This prevents "Pool release event triggered outside of request scope" warning
+							const profileResult = await pool.query<{
+								bap_id: string;
+								name: string;
+								image: string | null;
+								member_pubkey: string | null;
+							}>(
+								"SELECT bap_id, name, image, member_pubkey FROM profile WHERE bap_id = $1 AND user_id = $2 LIMIT 1",
+								[selectedBapId, userId],
+							);
 
-								const profile = profileResult.rows[0];
-								if (profile) {
-									// Update user record with profile data
-									await ctx.context.adapter.update({
-										model: "user",
-										where: [{ field: "id", value: userId }],
-										update: {
-											name: profile.name,
-											image: profile.image,
-											...(profile.member_pubkey && {
-												pubkey: profile.member_pubkey,
-											}),
-											updatedAt: new Date(),
-										},
-									});
-								}
-							} finally {
-								client.release();
+							const profile = profileResult.rows[0];
+							if (profile) {
+								// Update user record with profile data
+								await ctx.context.adapter.update({
+									model: "user",
+									where: [{ field: "id", value: userId }],
+									update: {
+										name: profile.name,
+										image: profile.image,
+										...(profile.member_pubkey && {
+											pubkey: profile.member_pubkey,
+										}),
+										updatedAt: new Date(),
+									},
+								});
 							}
 						}
 					} catch (error) {
@@ -289,149 +285,9 @@ export const sigmaProvider = (
 					}
 				}),
 			},
-			{
-				matcher: (ctx) => ctx.path === "/oauth2/userinfo",
-				handler: createAuthMiddleware(async (ctx) => {
-					// Get the access token from Authorization header
-					const authHeader = ctx.headers?.get?.("authorization");
-					if (!authHeader || !authHeader.startsWith("Bearer ")) {
-						return;
-					}
-
-					const accessToken = authHeader.substring(7);
-
-					try {
-						// Look up the access token record to get selectedBapId using adapter
-						const tokenRecords = await ctx.context.adapter.findMany<{
-							selectedBapId?: string;
-							userId: string;
-							accessToken: string;
-						}>({
-							model: "oauthAccessToken",
-							where: [{ field: "accessToken", value: accessToken }],
-							limit: 1,
-						});
-
-						const tokenRecord = tokenRecords[0];
-						if (!tokenRecord || !tokenRecord.selectedBapId) {
-							return; // No selected BAP ID, use primary (default behavior)
-						}
-
-						const selectedBapId = tokenRecord.selectedBapId;
-
-						// Get BAP ID details from profile table using getPool if available
-						if (!options?.getPool) {
-							return;
-						}
-
-						const pool = options.getPool();
-						const client = await pool.connect();
-						try {
-							const bapResult = await client.query(
-								"SELECT bap_id, name, image, profile FROM profile WHERE bap_id = $1 LIMIT 1",
-								[selectedBapId],
-							);
-
-							if (bapResult.rows.length === 0) {
-								throw new Error(
-									`Selected identity not found: ${selectedBapId}`,
-								);
-							}
-
-							const selectedName = bapResult.rows[0].name;
-							let selectedImage = bapResult.rows[0].image;
-							let profileData = bapResult.rows[0].profile;
-
-							// If profile JSONB is NULL, fetch from blockchain and populate it
-							if (!profileData) {
-								try {
-									const profileResponse = await fetch(
-										"https://api.sigmaidentity.com/api/v1/identity/get",
-										{
-											method: "POST",
-											headers: { "Content-Type": "application/json" },
-											body: JSON.stringify({ idKey: selectedBapId }),
-										},
-									);
-
-									if (profileResponse.ok) {
-										const apiData = (await profileResponse.json()) as {
-											result?: typeof profileData;
-										};
-										if (apiData.result) {
-											profileData = apiData.result;
-
-											// Update database with complete profile JSONB
-											await client.query(
-												`UPDATE profile SET
-													profile = $1,
-													image = COALESCE($2, image),
-													updated_at = NOW()
-												WHERE bap_id = $3`,
-												[
-													JSON.stringify(profileData),
-													profileData.identity?.image || null,
-													selectedBapId,
-												],
-											);
-
-											if (profileData.identity?.image) {
-												selectedImage = profileData.identity.image;
-											}
-										}
-									}
-								} catch (fetchError) {
-									console.error(
-										`❌ [OAuth Userinfo] Failed to fetch profile:`,
-										fetchError,
-									);
-								}
-							}
-
-							// Modify the response to use selected BAP ID instead of primary
-							const responseBody = ctx.context.returned as Record<
-								string,
-								unknown
-							>;
-							if (responseBody && typeof responseBody === "object") {
-								// Fetch the member pubkey for this BAP ID from KV reverse index
-								let memberPubkey: string | null = null;
-								if (options.cache) {
-									try {
-										const reverseKey = `bap:member_pubkey:${selectedBapId}`;
-										memberPubkey = await options.cache.get<string>(reverseKey);
-									} catch (error) {
-										console.error(
-											`❌ [OAuth Userinfo] Error fetching member pubkey:`,
-											error,
-										);
-									}
-								}
-
-								// Return the modified userinfo response
-								return {
-									...responseBody,
-									// Standard OIDC claims
-									name: selectedName,
-									given_name: profileData?.identity?.givenName || selectedName,
-									family_name: profileData?.identity?.familyName || null,
-									picture: selectedImage || responseBody.picture || null,
-									// Custom claims
-									pubkey: memberPubkey || responseBody.pubkey,
-									bap: profileData || null,
-								};
-							}
-						} finally {
-							client.release();
-						}
-					} catch (error) {
-						console.error(
-							"❌ [OAuth Userinfo] Error retrieving selected BAP ID:",
-							error,
-						);
-					}
-				}),
-			},
+			// NOTE: Userinfo enrichment is handled by getAdditionalUserInfoClaim in auth server config
+			// This avoids duplicate database queries and pool release warnings
+			// The auth server's getAdditionalUserInfoClaim looks up selectedBapId and fetches BAP profile
 			{
 				matcher: (ctx) => ctx.path === "/oauth2/consent",
 				handler: createAuthMiddleware(async (ctx) => {
@@ -846,27 +702,23 @@ export const sigmaProvider = (
 				// If not found by user.pubkey, check profile table for member_pubkey
 				if (!user && options?.getPool) {
 					const pool = options.getPool();
-					const client = await pool.connect();
-					try {
-						const profileResult = await client.query<{ user_id: string }>(
-							"SELECT user_id FROM profile WHERE member_pubkey = $1 LIMIT 1",
-							[pubkey],
-						);
+					// Use pool.query() directly to avoid connect/release pattern
+					const profileResult = await pool.query<{ user_id: string }>(
+						"SELECT user_id FROM profile WHERE member_pubkey = $1 LIMIT 1",
+						[pubkey],
+					);
 
-						const profileRow = profileResult.rows[0];
-						if (profileRow) {
-							const userId = profileRow.user_id;
+					const profileRow = profileResult.rows[0];
+					if (profileRow) {
+						const userId = profileRow.user_id;
 
-							// Fetch the user record
-							const foundUsers =
-								await ctx.context.adapter.findMany<UserWithPubkey>({
-									model: "user",
-									where: [{ field: "id", value: userId }],
-								});
-							user = foundUsers[0] as UserWithPubkey | undefined;
-						}
-					} finally {
-						client.release();
+						// Fetch the user record
+						const foundUsers =
+							await ctx.context.adapter.findMany<UserWithPubkey>({
+								model: "user",
+								where: [{ field: "id", value: userId }],
+							});
+						user = foundUsers[0] as UserWithPubkey | undefined;
 					}
 				}
 
@@ -923,59 +775,55 @@ export const sigmaProvider = (
 
 						// Update user record with profile data from profile table
 						const selectedBapId = ctx.body?.bapId;
-						const client = await pool.connect();
-						try {
-							let profileResult: {
-								rows: Array<{
-									bap_id: string;
-									name: string;
-									image: string | null;
-									member_pubkey: string | null;
-								}>;
-							};
+						let profileResult: {
+							rows: Array<{
+								bap_id: string;
+								name: string;
+								image: string | null;
+								member_pubkey: string | null;
+							}>;
+						};
 
-							if (selectedBapId) {
-								// Query profile for selected identity
-								profileResult = await client.query<{
-									bap_id: string;
-									name: string;
-									image: string | null;
-									member_pubkey: string | null;
-								}>(
-									"SELECT bap_id, name, image, member_pubkey FROM profile WHERE bap_id = $1 AND user_id = $2 LIMIT 1",
-									[selectedBapId, user.id],
-								);
-							} else {
-								// Query for primary profile
-								profileResult = await client.query<{
-									bap_id: string;
-									name: string;
-									image: string | null;
-									member_pubkey: string | null;
-								}>(
-									"SELECT bap_id, name, image, member_pubkey FROM profile WHERE user_id = $1 AND is_primary = true LIMIT 1",
-									[user.id],
-								);
-							}
+						if (selectedBapId) {
+							// Query profile for selected identity
+							// Use pool.query() directly to avoid connect/release pattern
+							profileResult = await pool.query<{
+								bap_id: string;
+								name: string;
+								image: string | null;
+								member_pubkey: string | null;
+							}>(
+								"SELECT bap_id, name, image, member_pubkey FROM profile WHERE bap_id = $1 AND user_id = $2 LIMIT 1",
+								[selectedBapId, user.id],
+							);
+						} else {
+							// Query for primary profile
+							profileResult = await pool.query<{
+								bap_id: string;
+								name: string;
+								image: string | null;
+								member_pubkey: string | null;
+							}>(
+								"SELECT bap_id, name, image, member_pubkey FROM profile WHERE user_id = $1 AND is_primary = true LIMIT 1",
+								[user.id],
+							);
+						}
 
-							const selectedProfile = profileResult.rows[0];
-							if (selectedProfile) {
-								// Update user record with profile data
-								await ctx.context.adapter.update({
-									model: "user",
-									where: [{ field: "id", value: user.id }],
-									update: {
-										name: selectedProfile.name,
-										image: selectedProfile.image,
-										...(selectedProfile.member_pubkey && {
-											pubkey: selectedProfile.member_pubkey,
-										}),
-										updatedAt: new Date(),
-									},
-								});
-							}
-						} finally {
-							client.release();
+						const selectedProfile = profileResult.rows[0];
+						if (selectedProfile) {
+							// Update user record with profile data
+							await ctx.context.adapter.update({
+								model: "user",
+								where: [{ field: "id", value: user.id }],
+								update: {
+									name: selectedProfile.name,
+									image: selectedProfile.image,
+									...(selectedProfile.member_pubkey && {
+										pubkey: selectedProfile.member_pubkey,
+									}),
+									updatedAt: new Date(),
+								},
+							});
 						}
 
 						// Re-fetch user to get updated profile data
