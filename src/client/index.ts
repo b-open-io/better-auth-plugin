@@ -50,6 +50,28 @@ const generateCodeChallenge = async (verifier: string) => {
  * Sigma Auth client plugin for Better Auth
  * Provides browser-side OAuth flow with PKCE
  *
+ * ARCHITECTURE: FRONTING BETTER AUTH'S OIDC PROVIDER
+ * ===================================================
+ * This plugin intentionally fronts Better Auth's OIDC authorize endpoint by
+ * redirecting to `/oauth2/authorize` instead of `/api/auth/oauth2/authorize`.
+ *
+ * Why we front the endpoint:
+ * - Wallet access is a prerequisite to authentication in Sigma Identity
+ * - Better Auth's OIDC provider handles standard OAuth flows (session, consent)
+ * - But it doesn't know about Bitcoin wallet unlock requirements
+ * - Our custom gate at `/oauth2/authorize` checks wallet status BEFORE
+ *   forwarding to Better Auth's real endpoint
+ *
+ * The flow:
+ * 1. Client calls `/oauth2/authorize` (custom gate)
+ * 2. Gate checks: session → local backup → cloud backup → signup
+ * 3. If wallet not accessible, prompts user to unlock it
+ * 4. Once wallet is accessible, forwards to Better Auth's `/api/auth/oauth2/authorize`
+ * 5. Better Auth handles standard OAuth (session validation, consent, authorization code)
+ *
+ * This ensures that wallet access is always verified before any OAuth flow completes,
+ * making Bitcoin identity the foundation of authentication.
+ *
  * @example
  * ```typescript
  * import { createAuthClient } from "better-auth/client";
@@ -153,7 +175,9 @@ export const sigmaClient = () => {
 							params.append("provider", options.provider);
 						}
 
-						// Use custom authorize endpoint that checks wallet unlock before proceeding
+						// IMPORTANT: Use custom authorize endpoint that FRONTS Better Auth
+						// This gate ensures wallet access before OAuth completion
+						// See /app/oauth2/authorize/page.tsx on auth server for implementation
 						const fullAuthUrl = `${authUrl}/oauth2/authorize?${params.toString()}`;
 
 						if (typeof window !== "undefined") {

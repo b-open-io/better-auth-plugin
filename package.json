@@ -50,6 +50,14 @@
 	],
 	"author": "Sigma Identity",
 	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/b-open-io/better-auth-plugin.git"
+	},
+	"bugs": {
+		"url": "https://github.com/b-open-io/better-auth-plugin/issues"
+	},
+	"homepage": "https://sigmaidentity.com/docs/setup/client-plugin",
 	"peerDependencies": {
 		"better-auth": "^1.3.34",
 		"@bsv/sdk": "^1.9.9",
