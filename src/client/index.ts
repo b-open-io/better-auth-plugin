@@ -321,6 +321,7 @@ export const sigmaClient = () => {
 							return {
 								user: data.user,
 								access_token: data.access_token,
+								id_token: data.id_token,
 								refresh_token: data.refresh_token,
 							};
 						} catch (err) {

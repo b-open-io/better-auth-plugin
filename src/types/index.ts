@@ -70,6 +70,7 @@ export type OAuthProvider = "github" | "apple" | "twitter";
 export interface OAuthCallbackResult {
 	user: SigmaUserInfo;
 	access_token: string;
+	id_token: string;
 	refresh_token?: string;
 }
 

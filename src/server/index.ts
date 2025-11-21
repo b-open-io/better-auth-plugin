@@ -16,6 +16,7 @@ export interface TokenExchangeOptions {
 export interface TokenExchangeResult {
 	user: SigmaUserInfo;
 	access_token: string;
+	id_token: string;
 	refresh_token?: string;
 }
 
@@ -102,6 +103,7 @@ export async function exchangeCodeForTokens(
 
 	const tokens = (await tokenResponse.json()) as {
 		access_token: string;
+		id_token: string;
 		refresh_token?: string;
 	};
 
@@ -130,6 +132,7 @@ export async function exchangeCodeForTokens(
 	return {
 		user: userInfo,
 		access_token: tokens.access_token,
+		id_token: tokens.id_token,
 		refresh_token: tokens.refresh_token,
 	};
 }
