@@ -28,6 +28,20 @@ export interface TokenExchangeError {
 }
 
 /**
+ * OAuth2 token response from the authorization server
+ * @see https://www.rfc-editor.org/rfc/rfc6749#section-5.1
+ */
+export interface OAuth2TokenResponse {
+	access_token: string;
+	token_type: string;
+	expires_in: number;
+	refresh_token?: string;
+	scope: string;
+	/** OIDC id_token - only present when openid scope requested */
+	id_token?: string;
+}
+
+/**
  * Exchange OAuth authorization code for access token
  * This function MUST be called server-side only as it requires the member private key
  *
@@ -101,11 +115,18 @@ export async function exchangeCodeForTokens(
 		} as TokenExchangeError;
 	}
 
-	const tokens = (await tokenResponse.json()) as {
-		access_token: string;
-		id_token: string;
-		refresh_token?: string;
-	};
+	const tokens: OAuth2TokenResponse = await tokenResponse.json();
+
+	// Validate that id_token is present (required for OIDC)
+	if (!tokens.id_token) {
+		throw {
+			error: "Missing id_token in token response",
+			details:
+				"The authorization server did not return an id_token. Ensure 'openid' scope is included in the authorization request.",
+			status: 500,
+			endpoint: "/api/auth/oauth2/token",
+		} as TokenExchangeError;
+	}
 
 	// Get user info with the access token
 	const userInfoResponse = await fetch(

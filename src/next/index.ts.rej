@@ -1,0 +1,8 @@
+@@ -130,6 +130,7 @@
+ 		return Response.json({
+ 			user: result.user,
+ 			access_token: result.access_token,
++			id_token: result.id_token,
+ 			refresh_token: result.refresh_token,
+ 		});
+ 	} catch (error) {
