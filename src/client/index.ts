@@ -5,6 +5,7 @@ import type {
 	OAuthCallbackResult,
 	SubscriptionStatus,
 } from "../types/index.js";
+import { SigmaIframeSigner } from "./signer.js";
 
 // Re-export types for convenience
 export type {
@@ -12,6 +13,50 @@ export type {
 	OAuthCallbackResult,
 	SubscriptionStatus,
 } from "../types/index.js";
+
+// Module-level state for signer (singleton per page)
+let signer: SigmaIframeSigner | null = null;
+let storedBapId: string | null = null;
+
+// Storage key for persisting bapId
+const BAP_ID_STORAGE_KEY = "sigma_bap_id";
+
+/**
+ * Get the Sigma auth URL from environment or default
+ */
+const getSigmaUrl = (): string => {
+	if (typeof process !== "undefined" && process.env.NEXT_PUBLIC_SIGMA_AUTH_URL) {
+		return process.env.NEXT_PUBLIC_SIGMA_AUTH_URL;
+	}
+	return "https://auth.sigmaidentity.com";
+};
+
+/**
+ * Initialize or get the signer instance (lazy singleton)
+ */
+const getOrCreateSigner = async (): Promise<SigmaIframeSigner> => {
+	if (!signer) {
+		signer = new SigmaIframeSigner(getSigmaUrl());
+	}
+	if (!signer.isReady()) {
+		await signer.init();
+	}
+	return signer;
+};
+
+/**
+ * Load bapId from storage on init
+ */
+const loadStoredBapId = (): string | null => {
+	if (typeof window === "undefined") return null;
+	if (storedBapId) return storedBapId;
+
+	const stored = localStorage.getItem(BAP_ID_STORAGE_KEY);
+	if (stored) {
+		storedBapId = stored;
+	}
+	return storedBapId;
+};
 
 /**
  * Options for Sigma sign-in
@@ -318,6 +363,16 @@ export const sigmaClient = () => {
 							}
 
 							const data = (await response.json()) as OAuthCallbackResult;
+
+							// Store bapId from user data for signing (from bap_id claim)
+							const bapId = data.user?.bap_id;
+							if (bapId) {
+								storedBapId = bapId;
+								if (typeof window !== "undefined") {
+									localStorage.setItem(BAP_ID_STORAGE_KEY, bapId);
+								}
+							}
+
 							return {
 								user: data.user,
 								access_token: data.access_token,
@@ -344,6 +399,124 @@ export const sigmaClient = () => {
 										: "An unknown error occurred.",
 							} as OAuthCallbackError;
 						}
+					},
+
+					/**
+					 * Sign a request using the Sigma iframe signer
+					 * Keys stay in Sigma's domain - only the signature is returned
+					 *
+					 * @param requestPath - The API path being signed (e.g., "/api/droplits")
+					 * @param body - Optional request body (string or object)
+					 * @param signatureType - Signature type: 'bsm' or 'brc77' (default: 'brc77')
+					 * @returns Promise resolving to auth token string
+					 * @throws Error if no identity set or signing fails
+					 *
+					 * @example
+					 * ```typescript
+					 * const authToken = await authClient.sigma.sign("/api/droplits", { name: "test" });
+					 * fetch("/api/droplits", {
+					 *   headers: { "X-Auth-Token": authToken }
+					 * });
+					 * ```
+					 */
+					sign: async (
+						requestPath: string,
+						body?: string | object,
+						signatureType: "bsm" | "brc77" = "brc77",
+					): Promise<string> => {
+						// Ensure we have a bapId (from callback or storage)
+						const bapId = storedBapId || loadStoredBapId();
+						if (!bapId) {
+							throw new Error(
+								"No identity set. Complete OAuth login first or call setIdentity().",
+							);
+						}
+
+						const signerInstance = await getOrCreateSigner();
+						signerInstance.setIdentity(bapId);
+
+						// Serialize body if object
+						const bodyString =
+							body && typeof body === "object" ? JSON.stringify(body) : body;
+
+						return signerInstance.sign(requestPath, bodyString, signatureType);
+					},
+
+					/**
+					 * Sign OP_RETURN data with AIP for Bitcoin transactions
+					 * Keys stay in Sigma's domain - only the signed ops are returned
+					 *
+					 * @param hexArray - Array of hex strings to sign
+					 * @returns Promise resolving to array of signed hex strings
+					 * @throws Error if no identity set or signing fails
+					 *
+					 * @example
+					 * ```typescript
+					 * const signedOps = await authClient.sigma.signAIP(["6a", "..."]);
+					 * ```
+					 */
+					signAIP: async (hexArray: string[]): Promise<string[]> => {
+						const bapId = storedBapId || loadStoredBapId();
+						if (!bapId) {
+							throw new Error(
+								"No identity set. Complete OAuth login first or call setIdentity().",
+							);
+						}
+
+						const signerInstance = await getOrCreateSigner();
+						signerInstance.setIdentity(bapId);
+
+						return signerInstance.signAIP(hexArray);
+					},
+
+					/**
+					 * Get the current identity (BAP ID) being used for signing
+					 * @returns The current bapId or null if not set
+					 */
+					getIdentity: (): string | null => {
+						return storedBapId || loadStoredBapId();
+					},
+
+					/**
+					 * Set the identity (BAP ID) to use for signing
+					 * This is typically set automatically from OAuth callback,
+					 * but can be set manually for multi-identity scenarios
+					 *
+					 * @param bapId - The BAP identity ID to use
+					 */
+					setIdentity: (bapId: string): void => {
+						storedBapId = bapId;
+						if (typeof window !== "undefined") {
+							localStorage.setItem(BAP_ID_STORAGE_KEY, bapId);
+						}
+						// If signer already exists, update it
+						if (signer) {
+							signer.setIdentity(bapId);
+						}
+					},
+
+					/**
+					 * Clear the stored identity and destroy the signer
+					 * Call this on logout
+					 */
+					clearIdentity: (): void => {
+						storedBapId = null;
+						if (typeof window !== "undefined") {
+							localStorage.removeItem(BAP_ID_STORAGE_KEY);
+						}
+						if (signer) {
+							signer.destroy();
+							signer = null;
+						}
+					},
+
+					/**
+					 * Check if the signer is ready for signing
+					 * @returns true if identity is set and signer is initialized
+					 */
+					isReady: (): boolean => {
+						const bapId = storedBapId || loadStoredBapId();
+						return !!bapId;
 					},
 				},
 			};

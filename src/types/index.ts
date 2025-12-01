@@ -43,7 +43,8 @@ export interface SigmaUserInfo extends Omit<User, "id"> {
 
 	// Custom claims
 	pubkey: string; // Bitcoin public key
-	bap?: BAPProfile | null; // Full BAP identity data
+	bap_id?: string; // BAP identity ID for signing (direct claim)
+	bap?: BAPProfile | string | null; // Full BAP identity data (may be JSON string from JWT)
 }
 
 /**

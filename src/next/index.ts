@@ -124,7 +124,7 @@ export function createCallbackHandler(config?: CallbackRouteConfig) {
 			console.log("[Sigma OAuth Callback] Success:", {
 				hasBap: !!result.user.bap,
 				name: result.user.name,
-				bapId: result.user.bap?.idKey?.substring(0, 20) || "none",
+				bapId: result.user.bap_id?.substring(0, 20) || "none",
 			});
 
 			return Response.json({
