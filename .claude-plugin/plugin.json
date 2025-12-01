@@ -15,5 +15,5 @@
     "better-auth",
     "bap"
   ],
-  "agents": "./agents/"
+  "agents": "./agents/sigma-auth-guide.md"
 }
