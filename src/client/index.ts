@@ -25,7 +25,10 @@ const BAP_ID_STORAGE_KEY = "sigma_bap_id";
  * Get the Sigma auth URL from environment or default
  */
 const getSigmaUrl = (): string => {
-	if (typeof process !== "undefined" && process.env.NEXT_PUBLIC_SIGMA_AUTH_URL) {
+	if (
+		typeof process !== "undefined" &&
+		process.env.NEXT_PUBLIC_SIGMA_AUTH_URL
+	) {
 		return process.env.NEXT_PUBLIC_SIGMA_AUTH_URL;
 	}
 	return "https://auth.sigmaidentity.com";

@@ -85,17 +85,18 @@ export class SigmaIframeSigner {
 		window.addEventListener("message", this.boundMessageHandler);
 
 		// Wait for iframe to load
+		const iframe = this.iframe;
 		await new Promise<void>((resolve, reject) => {
 			const timeout = setTimeout(
 				() => reject(new Error("Sigma iframe load timeout")),
 				10000,
 			);
-			this.iframe!.addEventListener("load", () => {
+			iframe.addEventListener("load", () => {
 				clearTimeout(timeout);
 				this.initialized = true;
 				resolve();
 			});
-			this.iframe!.addEventListener("error", () => {
+			iframe.addEventListener("error", () => {
 				clearTimeout(timeout);
 				reject(new Error("Failed to load Sigma iframe"));
 			});
@@ -132,12 +133,13 @@ export class SigmaIframeSigner {
 			throw new Error("No identity set. Call setIdentity() first.");
 		}
 
-		if (!this.iframe?.contentWindow) {
+		const contentWindow = this.iframe?.contentWindow;
+		if (!contentWindow) {
 			throw new Error("Sigma iframe not accessible");
 		}
 
 		// Ensure identity is set
-		this.iframe.contentWindow.postMessage(
+		contentWindow.postMessage(
 			{ type: "SET_IDENTITY", payload: { bapId: this.currentBapId } },
 			this.sigmaUrl,
 		);
@@ -163,7 +165,7 @@ export class SigmaIframeSigner {
 
 			this.pendingRequests.set(requestId, { resolve, reject, timeout });
 
-			this.iframe!.contentWindow!.postMessage(
+			contentWindow.postMessage(
 				{ type: "SIGN_REQUEST", payload: request },
 				this.sigmaUrl,
 			);
@@ -182,12 +184,13 @@ export class SigmaIframeSigner {
 			throw new Error("No identity set. Call setIdentity() first.");
 		}
 
-		if (!this.iframe?.contentWindow) {
+		const contentWindow = this.iframe?.contentWindow;
+		if (!contentWindow) {
 			throw new Error("Sigma iframe not accessible");
 		}
 
 		// Ensure identity is set
-		this.iframe.contentWindow.postMessage(
+		contentWindow.postMessage(
 			{ type: "SET_IDENTITY", payload: { bapId: this.currentBapId } },
 			this.sigmaUrl,
 		);
@@ -207,7 +210,7 @@ export class SigmaIframeSigner {
 
 			this.pendingAIPRequests.set(requestId, { resolve, reject, timeout });
 
-			this.iframe!.contentWindow!.postMessage(
+			contentWindow.postMessage(
 				{ type: "SIGN_AIP_REQUEST", payload: request },
 				this.sigmaUrl,
 			);
@@ -247,7 +250,9 @@ export class SigmaIframeSigner {
 				}
 				const errorMsg = event.data.error || "Signer error";
 				this.rejectAllPending(
-					new Error(`Signer error: ${errorMsg}. Please sign in to Sigma Identity.`),
+					new Error(
+						`Signer error: ${errorMsg}. Please sign in to Sigma Identity.`,
+					),
 				);
 				break;
 			}
@@ -290,13 +295,13 @@ export class SigmaIframeSigner {
 	 * Reject all pending requests
 	 */
 	private rejectAllPending(error: Error): void {
-		for (const [id, pending] of this.pendingRequests) {
+		for (const [, pending] of this.pendingRequests) {
 			clearTimeout(pending.timeout);
 			pending.reject(error);
 		}
 		this.pendingRequests.clear();
 
-		for (const [id, pending] of this.pendingAIPRequests) {
+		for (const [, pending] of this.pendingAIPRequests) {
 			clearTimeout(pending.timeout);
 			pending.reject(error);
 		}
