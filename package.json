@@ -1,6 +1,6 @@
 {
 	"name": "@sigma-auth/better-auth-plugin",
-	"version": "0.0.8",
+	"version": "0.0.9",
 	"description": "Better Auth plugins for Sigma Identity - client, server, and provider integrations",
 	"type": "module",
 	"main": "./dist/types/index.js",
@@ -59,7 +59,7 @@
 	},
 	"homepage": "https://sigmaidentity.com/docs/setup/client-plugin",
 	"peerDependencies": {
-		"better-auth": "^1.3.34",
+		"better-auth": "^1.4.5",
 		"@bsv/sdk": "^1.9.9",
 		"@neondatabase/serverless": "^1.0.2",
 		"zod": "^4.1.12"
@@ -79,12 +79,13 @@
 		"bitcoin-auth": "^0.0.5"
 	},
 	"devDependencies": {
-		"@better-fetch/fetch": "^1.1.18",
-		"@biomejs/biome": "^2.3.7",
-		"@bsv/sdk": "^1.9.9",
+		"@better-fetch/fetch": "^1.1.19",
+		"@biomejs/biome": "^2.3.8",
+		"@bsv/sdk": "^1.9.23",
 		"@neondatabase/serverless": "^1.0.2",
-		"@types/node": "^24.10.1",
+		"@types/node": "^24.10.2",
+		"better-auth": "1.4.5",
 		"typescript": "^5.9.3",
-		"zod": "^4.1.12"
+		"zod": "^4.1.13"
 	}
 }

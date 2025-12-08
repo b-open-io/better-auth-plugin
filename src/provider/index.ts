@@ -841,7 +841,6 @@ export const sigmaProvider = (
 				// Create session
 				const session = await ctx.context.internalAdapter.createSession(
 					user.id,
-					ctx,
 				);
 
 				if (!session) {
