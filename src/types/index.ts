@@ -48,16 +48,101 @@ export interface SigmaUserInfo extends Omit<User, "id"> {
 }
 
 /**
+ * Subscription tier levels
+ */
+export type SubscriptionTier =
+	| "free"
+	| "plus"
+	| "pro"
+	| "premium"
+	| "enterprise";
+
+/**
  * Subscription status from auth server
  */
 export interface SubscriptionStatus {
-	tier: "free" | "plus" | "pro" | "premium" | "enterprise";
+	tier: SubscriptionTier;
 	isActive: boolean;
 	nftOrigin?: string;
 	walletAddress?: string;
 	expiresAt?: Date;
 	validUntil?: string;
+	lastVerified?: string;
 	features?: string[];
+}
+
+/**
+ * Connected wallet information from sigma-auth
+ * Note: Field names match the actual API response
+ */
+export interface ConnectedWallet {
+	address: string;
+	provider: string;
+	connectionMethod: string;
+	recovery_params?: Record<string, unknown>;
+	isPrimary: boolean;
+	connectedAt: string;
+	lastVerified: string;
+}
+
+/**
+ * NFT response grouped by wallet address
+ */
+export interface WalletNFTs {
+	address: string;
+	nfts: NFT[];
+	count: number;
+	error?: string;
+}
+
+/**
+ * Response from /api/wallet/nfts
+ */
+export interface NFTListResponse {
+	wallets: WalletNFTs[];
+	totalNFTs: number;
+	addresses: string[];
+}
+
+/**
+ * Response from /api/wallet/verify-ownership
+ */
+export interface NFTOwnershipResponse {
+	owns: boolean;
+	count: number;
+	nfts?: NFT[];
+	message?: string;
+}
+
+/**
+ * NFT origin data from Gorilla Pool
+ */
+export interface NFTOrigin {
+	outpoint: string;
+	data?: {
+		insc?: {
+			file: {
+				hash: string;
+				size: number;
+				type: string;
+			};
+		};
+		map?: Record<string, unknown>;
+	};
+}
+
+/**
+ * NFT from connected wallets (via Gorilla Pool API)
+ */
+export interface NFT {
+	txid: string;
+	vout: number;
+	outpoint: string;
+	satoshis: number;
+	owner: string;
+	origin?: NFTOrigin;
+	height?: number;
+	idx?: number;
 }
 
 /**

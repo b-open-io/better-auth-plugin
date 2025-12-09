@@ -1,17 +1,33 @@
 import type { BetterFetchOption } from "@better-fetch/fetch";
 import type { BetterAuthClientPlugin } from "better-auth/client";
 import type {
+	BAPProfile,
+	ConnectedWallet,
+	NFT,
+	NFTListResponse,
+	NFTOwnershipResponse,
 	OAuthCallbackError,
 	OAuthCallbackResult,
+	SigmaUserInfo,
 	SubscriptionStatus,
+	SubscriptionTier,
+	WalletNFTs,
 } from "../types/index.js";
 import { SigmaIframeSigner } from "./signer.js";
 
 // Re-export types for convenience
 export type {
+	BAPProfile,
+	ConnectedWallet,
+	NFT,
+	NFTListResponse,
+	NFTOwnershipResponse,
 	OAuthCallbackError,
 	OAuthCallbackResult,
+	SigmaUserInfo,
 	SubscriptionStatus,
+	SubscriptionTier,
+	WalletNFTs,
 } from "../types/index.js";
 
 // Module-level state for signer (singleton per page)
@@ -160,6 +176,9 @@ export const sigmaClient = () => {
 		getActions: ($fetch) => {
 			return {
 				subscription: {
+					/**
+					 * Get current subscription status based on NFT ownership
+					 */
 					getStatus: async (): Promise<SubscriptionStatus> => {
 						const res = await $fetch<SubscriptionStatus>(
 							"/subscription/status",
@@ -173,6 +192,182 @@ export const sigmaClient = () => {
 							);
 						}
 						return res.data as SubscriptionStatus;
+					},
+
+					/**
+					 * Check if current tier meets minimum requirement
+					 */
+					hasTier: (
+						currentTier: SubscriptionTier,
+						requiredTier: SubscriptionTier,
+					): boolean => {
+						const tierPriority: Record<SubscriptionTier, number> = {
+							free: 0,
+							plus: 1,
+							pro: 2,
+							premium: 3,
+							enterprise: 4,
+						};
+						return tierPriority[currentTier] >= tierPriority[requiredTier];
+					},
+				},
+				wallet: {
+					/**
+					 * Get connected wallets for a BAP ID
+					 * @param bapId - The BAP ID to get wallets for (optional, defaults to session user)
+					 */
+					getConnected: async (
+						bapId?: string,
+					): Promise<{ wallets: ConnectedWallet[] }> => {
+						const url = bapId
+							? `/wallet/connect?bapId=${encodeURIComponent(bapId)}`
+							: "/wallet/connect";
+						const res = await $fetch<{ wallets: ConnectedWallet[] }>(url, {
+							method: "GET",
+						});
+						if (res.error) {
+							throw new Error(
+								res.error.message || "Failed to fetch connected wallets",
+							);
+						}
+						return res.data as { wallets: ConnectedWallet[] };
+					},
+
+					/**
+					 * Connect a wallet via BSV signature (authToken from bitcoin-auth)
+					 * @param bapId - The BAP ID to connect the wallet to
+					 * @param authToken - bitcoin-auth token (pubkey|bsm|timestamp|/api/wallet/connect|signature)
+					 * @param provider - Wallet provider name (default: "yours")
+					 */
+					connect: async (
+						bapId: string,
+						authToken: string,
+						provider = "yours",
+					): Promise<{
+						success: boolean;
+						walletAddress: string;
+						pubkey: string;
+						connectedAt: string;
+					}> => {
+						const res = await $fetch<{
+							success: boolean;
+							walletAddress: string;
+							pubkey: string;
+							connectedAt: string;
+						}>("/wallet/connect", {
+							method: "POST",
+							body: {
+								bapId,
+								authToken,
+								provider,
+							},
+						});
+						if (res.error) {
+							throw new Error(res.error.message || "Failed to connect wallet");
+						}
+						return res.data as {
+							success: boolean;
+							walletAddress: string;
+							pubkey: string;
+							connectedAt: string;
+						};
+					},
+
+					/**
+					 * Disconnect a wallet
+					 * Note: Uses query params as required by the backend API
+					 * @param bapId - The BAP ID the wallet is connected to
+					 * @param address - The wallet address to disconnect
+					 */
+					disconnect: async (
+						bapId: string,
+						address: string,
+					): Promise<{ success: boolean; walletAddress: string }> => {
+						const res = await $fetch<{
+							success: boolean;
+							walletAddress: string;
+						}>(
+							`/wallet/connect?bapId=${encodeURIComponent(bapId)}&address=${encodeURIComponent(address)}`,
+							{
+								method: "DELETE",
+							},
+						);
+						if (res.error) {
+							throw new Error(
+								res.error.message || "Failed to disconnect wallet",
+							);
+						}
+						return res.data as { success: boolean; walletAddress: string };
+					},
+
+					/**
+					 * Set a wallet as primary (for receiving NFTs)
+					 * @param bapId - The BAP ID
+					 * @param walletAddress - The wallet address to set as primary
+					 */
+					setPrimary: async (
+						bapId: string,
+						walletAddress: string,
+					): Promise<{ success: boolean; primaryAddress: string }> => {
+						const res = await $fetch<{
+							success: boolean;
+							primaryAddress: string;
+						}>("/wallet/set-primary", {
+							method: "POST",
+							body: {
+								bapId,
+								walletAddress,
+							},
+						});
+						if (res.error) {
+							throw new Error(
+								res.error.message || "Failed to set primary wallet",
+							);
+						}
+						return res.data as { success: boolean; primaryAddress: string };
+					},
+				},
+				nft: {
+					/**
+					 * Get NFTs across all connected wallets
+					 * @param refresh - Force refresh from blockchain (default: false)
+					 */
+					list: async (refresh = false): Promise<NFTListResponse> => {
+						const url = refresh ? "/wallet/nfts?refresh=true" : "/wallet/nfts";
+						const res = await $fetch<NFTListResponse>(url, {
+							method: "GET",
+						});
+						if (res.error) {
+							throw new Error(res.error.message || "Failed to fetch NFTs");
+						}
+						return res.data as NFTListResponse;
+					},
+
+					/**
+					 * Verify ownership of a specific NFT origin or collection
+					 * @param params - Verification parameters
+					 * @param params.origin - Specific NFT origin to check
+					 * @param params.collection - Collection identifier to check
+					 * @param params.minCount - Minimum number of NFTs required (default: 1)
+					 */
+					verifyOwnership: async (params: {
+						origin?: string;
+						collection?: string;
+						minCount?: number;
+					}): Promise<NFTOwnershipResponse> => {
+						const res = await $fetch<NFTOwnershipResponse>(
+							"/wallet/verify-ownership",
+							{
+								method: "POST",
+								body: params,
+							},
+						);
+						if (res.error) {
+							throw new Error(
+								res.error.message || "Failed to verify NFT ownership",
+							);
+						}
+						return res.data as NFTOwnershipResponse;
 					},
 				},
 				signIn: {
