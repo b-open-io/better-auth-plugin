@@ -116,10 +116,32 @@ export async function exchangeCodeForTokens(
 	});
 
 	if (!tokenResponse.ok) {
-		const errorData = await tokenResponse.text();
+		// Parse error response to extract actual error message from auth server
+		let errorCode = "token_exchange_failed";
+		let errorDetails: string;
+
+		const responseText = await tokenResponse.text();
+		try {
+			const errorJson = JSON.parse(responseText) as {
+				error?: string;
+				error_description?: string;
+				message?: string;
+			};
+			// Use error_description if available, fall back to message or error
+			errorDetails =
+				errorJson.error_description ||
+				errorJson.message ||
+				errorJson.error ||
+				responseText;
+			errorCode = errorJson.error || errorCode;
+		} catch {
+			// Not JSON, use raw text
+			errorDetails = responseText;
+		}
+
 		throw {
-			error: "Token exchange failed",
-			details: errorData,
+			error: errorCode,
+			details: errorDetails,
 			status: tokenResponse.status,
 			endpoint: "/api/auth/oauth2/token",
 		} as TokenExchangeError;

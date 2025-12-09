@@ -405,7 +405,8 @@ export const sigmaProvider = (
 							const clientId = body.client_id as string;
 							if (!clientId) {
 								throw new APIError("BAD_REQUEST", {
-									message: "Missing client_id in request body",
+									error: "invalid_request",
+									error_description: "Missing client_id in request body",
 								});
 							}
 
@@ -417,7 +418,8 @@ export const sigmaProvider = (
 
 							if (clients.length === 0) {
 								throw new APIError("UNAUTHORIZED", {
-									message: `OAuth client not registered: ${clientId}`,
+									error: "invalid_client",
+									error_description: `OAuth client not registered: ${clientId}`,
 								});
 							}
 
@@ -429,7 +431,8 @@ export const sigmaProvider = (
 
 							if (!authToken) {
 								throw new APIError("UNAUTHORIZED", {
-									message:
+									error: "invalid_client",
+									error_description:
 										"Missing X-Auth-Token header for client authentication",
 								});
 							}
@@ -438,14 +441,17 @@ export const sigmaProvider = (
 							const parsed = parseAuthToken(authToken);
 							if (!parsed?.pubkey) {
 								throw new APIError("UNAUTHORIZED", {
-									message: "Invalid Bitcoin auth token format",
+									error: "invalid_client",
+									error_description:
+										"Invalid Bitcoin auth token format - unable to extract pubkey",
 								});
 							}
 
 							// Verify the pubkey from signature matches the client's memberPubkey
 							if (!client.metadata) {
 								throw new APIError("UNAUTHORIZED", {
-									message: `Client ${clientId} has no metadata`,
+									error: "invalid_client",
+									error_description: `Client ${clientId} has no metadata configured`,
 								});
 							}
 
@@ -456,13 +462,16 @@ export const sigmaProvider = (
 
 							if (!expectedPubkey) {
 								throw new APIError("UNAUTHORIZED", {
-									message: `Client ${clientId} has no memberPubkey in metadata`,
+									error: "invalid_client",
+									error_description: `Client ${clientId} has no memberPubkey in metadata - register your member public key`,
 								});
 							}
 
 							if (parsed.pubkey !== expectedPubkey) {
 								throw new APIError("UNAUTHORIZED", {
-									message: "Bitcoin signature pubkey does not match client",
+									error: "invalid_client",
+									error_description:
+										"Signature pubkey does not match registered member key - check SIGMA_MEMBER_PRIVATE_KEY matches the public key registered for this OAuth client",
 								});
 							}
 
@@ -488,7 +497,9 @@ export const sigmaProvider = (
 							const isValid = verifyAuthToken(authToken, verifyData, 5);
 							if (!isValid) {
 								throw new APIError("UNAUTHORIZED", {
-									message: "Invalid Bitcoin signature",
+									error: "invalid_client",
+									error_description:
+										"Bitcoin signature verification failed - signature expired or request body was modified",
 								});
 							}
 
@@ -516,7 +527,8 @@ export const sigmaProvider = (
 
 							if (!refreshToken) {
 								throw new APIError("BAD_REQUEST", {
-									message: "Missing refresh_token",
+									error: "invalid_request",
+									error_description: "Missing refresh_token",
 								});
 							}
 
@@ -524,7 +536,8 @@ export const sigmaProvider = (
 							const clientId = body.client_id as string;
 							if (!clientId) {
 								throw new APIError("BAD_REQUEST", {
-									message: "Missing client_id in request body",
+									error: "invalid_request",
+									error_description: "Missing client_id in request body",
 								});
 							}
 
@@ -536,7 +549,8 @@ export const sigmaProvider = (
 
 							if (clients.length === 0) {
 								throw new APIError("UNAUTHORIZED", {
-									message: `OAuth client not registered: ${clientId}`,
+									error: "invalid_client",
+									error_description: `OAuth client not registered: ${clientId}`,
 								});
 							}
 
@@ -548,7 +562,8 @@ export const sigmaProvider = (
 
 							if (!authToken) {
 								throw new APIError("UNAUTHORIZED", {
-									message:
+									error: "invalid_client",
+									error_description:
 										"Missing X-Auth-Token header for client authentication",
 								});
 							}
@@ -556,13 +571,16 @@ export const sigmaProvider = (
 							const parsed = parseAuthToken(authToken);
 							if (!parsed?.pubkey) {
 								throw new APIError("UNAUTHORIZED", {
-									message: "Invalid Bitcoin auth token format",
+									error: "invalid_client",
+									error_description:
+										"Invalid Bitcoin auth token format - unable to extract pubkey",
 								});
 							}
 
 							if (!client.metadata) {
 								throw new APIError("UNAUTHORIZED", {
-									message: `Client ${clientId} has no metadata`,
+									error: "invalid_client",
+									error_description: `Client ${clientId} has no metadata configured`,
 								});
 							}
 
@@ -573,13 +591,16 @@ export const sigmaProvider = (
 
 							if (!expectedPubkey) {
 								throw new APIError("UNAUTHORIZED", {
-									message: `Client ${clientId} has no memberPubkey in metadata`,
+									error: "invalid_client",
+									error_description: `Client ${clientId} has no memberPubkey in metadata - register your member public key`,
 								});
 							}
 
 							if (parsed.pubkey !== expectedPubkey) {
 								throw new APIError("UNAUTHORIZED", {
-									message: "Bitcoin signature pubkey does not match client",
+									error: "invalid_client",
+									error_description:
+										"Signature pubkey does not match registered member key - check SIGMA_MEMBER_PRIVATE_KEY matches the public key registered for this OAuth client",
 								});
 							}
 
@@ -601,7 +622,9 @@ export const sigmaProvider = (
 							const isValid = verifyAuthToken(authToken, verifyData, 5);
 							if (!isValid) {
 								throw new APIError("UNAUTHORIZED", {
-									message: "Invalid Bitcoin signature",
+									error: "invalid_client",
+									error_description:
+										"Bitcoin signature verification failed - signature expired or request body was modified",
 								});
 							}
 
@@ -625,7 +648,8 @@ export const sigmaProvider = (
 
 						// Unknown grant type
 						throw new APIError("BAD_REQUEST", {
-							message: `Unsupported grant_type: ${grantType}`,
+							error: "unsupported_grant_type",
+							error_description: `Unsupported grant_type: ${grantType}`,
 						});
 					}),
 				},
