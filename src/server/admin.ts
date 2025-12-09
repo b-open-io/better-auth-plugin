@@ -273,15 +273,31 @@ async function resolveUserRoles(
 	const roles: string[] = ["user"];
 
 	try {
+		// Include static database role from Better Auth admin plugin
+		// This allows manual admin assignment via setRole() to work alongside
+		// dynamic role resolution (BAP IDs, NFTs, tokens)
+		const userWithRole = user as User & { role?: string };
+		if (userWithRole.role && userWithRole.role !== "user") {
+			// Role can be a single role or comma-separated list
+			const staticRoles = userWithRole.role.split(",").map((r) => r.trim());
+			for (const role of staticRoles) {
+				if (role && !roles.includes(role)) {
+					roles.push(role);
+				}
+			}
+		}
+
 		// Get BAP profile if resolver provided
 		let bap: BAPProfile | null = null;
 		if (options.getBAPProfile) {
 			bap = await options.getBAPProfile(user.id);
 		}
 
-		// Check admin BAP IDs
+		// Check admin BAP IDs (dynamic admin based on BAP identity)
 		if (bap?.idKey && options.adminBAPIds?.includes(bap.idKey)) {
-			roles.push("admin");
+			if (!roles.includes("admin")) {
+				roles.push("admin");
+			}
 		}
 
 		// Get connected wallet addresses
