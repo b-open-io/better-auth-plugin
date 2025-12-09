@@ -691,6 +691,108 @@ export const sigmaClient = () => {
 					},
 
 					/**
+					 * Encrypt data for a specific friend using Type42 key derivation
+					 * Keys stay in Sigma's domain - only encrypted data is returned
+					 *
+					 * @param data - The plaintext data to encrypt
+					 * @param friendBapId - The friend's BAP ID (used as seed for key derivation)
+					 * @param theirPublicKey - Optional: the friend's public key for encryption
+					 * @returns Promise resolving to base64-encoded encrypted data
+					 * @throws Error if no identity set or encryption fails
+					 *
+					 * @example
+					 * ```typescript
+					 * const encrypted = await authClient.sigma.encrypt(
+					 *   "Hello friend!",
+					 *   "friendBapId123",
+					 *   friend.themPublicKey
+					 * );
+					 * ```
+					 */
+					encrypt: async (
+						data: string,
+						friendBapId: string,
+						theirPublicKey?: string,
+					): Promise<string> => {
+						const bapId = storedBapId || loadStoredBapId();
+						if (!bapId) {
+							throw new Error(
+								"No identity set. Complete OAuth login first or call setIdentity().",
+							);
+						}
+
+						const signerInstance = await getOrCreateSigner();
+						signerInstance.setIdentity(bapId);
+
+						return signerInstance.encrypt(data, friendBapId, theirPublicKey);
+					},
+
+					/**
+					 * Decrypt data from a specific friend using Type42 key derivation
+					 * Keys stay in Sigma's domain - only decrypted data is returned
+					 *
+					 * @param ciphertext - The base64-encoded encrypted data
+					 * @param friendBapId - The friend's BAP ID (used as seed for key derivation)
+					 * @param theirPublicKey - Optional: the sender's public key for decryption
+					 * @returns Promise resolving to decrypted plaintext
+					 * @throws Error if no identity set or decryption fails
+					 *
+					 * @example
+					 * ```typescript
+					 * const decrypted = await authClient.sigma.decrypt(
+					 *   encryptedContent,
+					 *   "friendBapId123",
+					 *   friend.themPublicKey
+					 * );
+					 * ```
+					 */
+					decrypt: async (
+						ciphertext: string,
+						friendBapId: string,
+						theirPublicKey?: string,
+					): Promise<string> => {
+						const bapId = storedBapId || loadStoredBapId();
+						if (!bapId) {
+							throw new Error(
+								"No identity set. Complete OAuth login first or call setIdentity().",
+							);
+						}
+
+						const signerInstance = await getOrCreateSigner();
+						signerInstance.setIdentity(bapId);
+
+						return signerInstance.decrypt(ciphertext, friendBapId, theirPublicKey);
+					},
+
+					/**
+					 * Get the derived public key for a specific friend
+					 * Used in friend requests and for encryption key exchange
+					 *
+					 * @param friendBapId - The friend's BAP ID (used as seed for key derivation)
+					 * @returns Promise resolving to hex-encoded public key
+					 * @throws Error if no identity set or derivation fails
+					 *
+					 * @example
+					 * ```typescript
+					 * // Get public key to include in friend request transaction
+					 * const myPubKeyForFriend = await authClient.sigma.getFriendPublicKey(friendBapId);
+					 * ```
+					 */
+					getFriendPublicKey: async (friendBapId: string): Promise<string> => {
+						const bapId = storedBapId || loadStoredBapId();
+						if (!bapId) {
+							throw new Error(
+								"No identity set. Complete OAuth login first or call setIdentity().",
+							);
+						}
+
+						const signerInstance = await getOrCreateSigner();
+						signerInstance.setIdentity(bapId);
+
+						return signerInstance.getFriendPublicKey(friendBapId);
+					},
+
+					/**
 					 * Get the current identity (BAP ID) being used for signing
 					 * @returns The current bapId or null if not set
 					 */

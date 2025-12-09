@@ -1,12 +1,14 @@
 /**
  * Sigma Iframe Signer
  *
- * Provides seamless client-side signing via embedded Sigma iframe.
+ * Provides seamless client-side signing and encryption via embedded Sigma iframe.
  * Keys stay in auth.sigmaidentity.com - never exposed to client apps.
  *
  * Protocol:
- * - Parent → Iframe: SET_IDENTITY, SIGN_REQUEST, SIGN_AIP_REQUEST
- * - Iframe → Parent: WALLET_LOCKED, WALLET_UNLOCKED, SIGN_RESPONSE, SIGN_AIP_RESPONSE, SIGNER_ERROR
+ * - Parent → Iframe: SET_IDENTITY, SIGN_REQUEST, SIGN_AIP_REQUEST,
+ *                    ENCRYPT_REQUEST, DECRYPT_REQUEST, GET_FRIEND_PUBKEY_REQUEST
+ * - Iframe → Parent: WALLET_LOCKED, WALLET_UNLOCKED, SIGN_RESPONSE, SIGN_AIP_RESPONSE,
+ *                    ENCRYPT_RESPONSE, DECRYPT_RESPONSE, GET_FRIEND_PUBKEY_RESPONSE, SIGNER_ERROR
  */
 
 interface SignatureRequest {
@@ -35,6 +37,43 @@ interface AIPSignResponse {
 	error?: string;
 }
 
+interface EncryptRequest {
+	requestId: string;
+	data: string;
+	friendBapId: string;
+	counterPartyPublicKey?: string;
+}
+
+interface EncryptResponse {
+	requestId: string;
+	encrypted?: string;
+	error?: string;
+}
+
+interface DecryptRequest {
+	requestId: string;
+	ciphertext: string;
+	friendBapId: string;
+	counterPartyPublicKey?: string;
+}
+
+interface DecryptResponse {
+	requestId: string;
+	decrypted?: string;
+	error?: string;
+}
+
+interface GetFriendPubkeyRequest {
+	requestId: string;
+	friendBapId: string;
+}
+
+interface GetFriendPubkeyResponse {
+	requestId: string;
+	publicKey?: string;
+	error?: string;
+}
+
 interface PendingRequest<T> {
 	resolve: (value: T) => void;
 	reject: (error: Error) => void;
@@ -45,6 +84,9 @@ export class SigmaIframeSigner {
 	private iframe: HTMLIFrameElement | null = null;
 	private pendingRequests: Map<string, PendingRequest<string>> = new Map();
 	private pendingAIPRequests: Map<string, PendingRequest<string[]>> = new Map();
+	private pendingEncryptRequests: Map<string, PendingRequest<string>> = new Map();
+	private pendingDecryptRequests: Map<string, PendingRequest<string>> = new Map();
+	private pendingGetFriendPubkeyRequests: Map<string, PendingRequest<string>> = new Map();
 	private initialized = false;
 	private boundMessageHandler: ((event: MessageEvent) => void) | null = null;
 	private currentBapId: string | null = null;
@@ -218,6 +260,161 @@ export class SigmaIframeSigner {
 	}
 
 	/**
+	 * Encrypt data for a specific friend using Type42 key derivation
+	 * @param data - The plaintext data to encrypt
+	 * @param friendBapId - The friend's BAP ID (used as seed for key derivation)
+	 * @param counterPartyPublicKey - Optional: the friend's public key for encryption
+	 */
+	async encrypt(
+		data: string,
+		friendBapId: string,
+		counterPartyPublicKey?: string,
+	): Promise<string> {
+		if (!this.initialized) {
+			await this.init();
+		}
+
+		if (!this.currentBapId) {
+			throw new Error("No identity set. Call setIdentity() first.");
+		}
+
+		const contentWindow = this.iframe?.contentWindow;
+		if (!contentWindow) {
+			throw new Error("Sigma iframe not accessible");
+		}
+
+		// Ensure identity is set
+		contentWindow.postMessage(
+			{ type: "SET_IDENTITY", payload: { bapId: this.currentBapId } },
+			this.sigmaUrl,
+		);
+
+		const requestId = `enc_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+		const request: EncryptRequest = {
+			requestId,
+			data,
+			friendBapId,
+			counterPartyPublicKey,
+		};
+
+		return new Promise<string>((resolve, reject) => {
+			const timeout = setTimeout(() => {
+				this.pendingEncryptRequests.delete(requestId);
+				reject(new Error("Encryption request timeout"));
+			}, 30000);
+
+			this.pendingEncryptRequests.set(requestId, { resolve, reject, timeout });
+
+			contentWindow.postMessage(
+				{ type: "ENCRYPT_REQUEST", payload: request },
+				this.sigmaUrl,
+			);
+		});
+	}
+
+	/**
+	 * Decrypt data from a specific friend using Type42 key derivation
+	 * @param ciphertext - The encrypted data (base64 encoded)
+	 * @param friendBapId - The friend's BAP ID (used as seed for key derivation)
+	 * @param counterPartyPublicKey - Optional: the sender's public key for decryption
+	 */
+	async decrypt(
+		ciphertext: string,
+		friendBapId: string,
+		counterPartyPublicKey?: string,
+	): Promise<string> {
+		if (!this.initialized) {
+			await this.init();
+		}
+
+		if (!this.currentBapId) {
+			throw new Error("No identity set. Call setIdentity() first.");
+		}
+
+		const contentWindow = this.iframe?.contentWindow;
+		if (!contentWindow) {
+			throw new Error("Sigma iframe not accessible");
+		}
+
+		// Ensure identity is set
+		contentWindow.postMessage(
+			{ type: "SET_IDENTITY", payload: { bapId: this.currentBapId } },
+			this.sigmaUrl,
+		);
+
+		const requestId = `dec_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+		const request: DecryptRequest = {
+			requestId,
+			ciphertext,
+			friendBapId,
+			counterPartyPublicKey,
+		};
+
+		return new Promise<string>((resolve, reject) => {
+			const timeout = setTimeout(() => {
+				this.pendingDecryptRequests.delete(requestId);
+				reject(new Error("Decryption request timeout"));
+			}, 30000);
+
+			this.pendingDecryptRequests.set(requestId, { resolve, reject, timeout });
+
+			contentWindow.postMessage(
+				{ type: "DECRYPT_REQUEST", payload: request },
+				this.sigmaUrl,
+			);
+		});
+	}
+
+	/**
+	 * Get the derived public key for a specific friend
+	 * This key is used in friend requests and for encryption
+	 * @param friendBapId - The friend's BAP ID (used as seed for key derivation)
+	 */
+	async getFriendPublicKey(friendBapId: string): Promise<string> {
+		if (!this.initialized) {
+			await this.init();
+		}
+
+		if (!this.currentBapId) {
+			throw new Error("No identity set. Call setIdentity() first.");
+		}
+
+		const contentWindow = this.iframe?.contentWindow;
+		if (!contentWindow) {
+			throw new Error("Sigma iframe not accessible");
+		}
+
+		// Ensure identity is set
+		contentWindow.postMessage(
+			{ type: "SET_IDENTITY", payload: { bapId: this.currentBapId } },
+			this.sigmaUrl,
+		);
+
+		const requestId = `pubkey_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+		const request: GetFriendPubkeyRequest = {
+			requestId,
+			friendBapId,
+		};
+
+		return new Promise<string>((resolve, reject) => {
+			const timeout = setTimeout(() => {
+				this.pendingGetFriendPubkeyRequests.delete(requestId);
+				reject(new Error("Get friend public key request timeout"));
+			}, 30000);
+
+			this.pendingGetFriendPubkeyRequests.set(requestId, { resolve, reject, timeout });
+
+			contentWindow.postMessage(
+				{ type: "GET_FRIEND_PUBKEY_REQUEST", payload: request },
+				this.sigmaUrl,
+			);
+		});
+	}
+
+	/**
 	 * Handle messages from Sigma iframe
 	 */
 	private handleMessage(event: MessageEvent): void {
@@ -288,6 +485,57 @@ export class SigmaIframeSigner {
 				}
 				break;
 			}
+
+			case "ENCRYPT_RESPONSE": {
+				const response = payload as EncryptResponse;
+				const pending = this.pendingEncryptRequests.get(response.requestId);
+				if (pending) {
+					clearTimeout(pending.timeout);
+					this.pendingEncryptRequests.delete(response.requestId);
+					if (response.error) {
+						pending.reject(new Error(response.error));
+					} else if (response.encrypted) {
+						pending.resolve(response.encrypted);
+					} else {
+						pending.reject(new Error("No encrypted data returned"));
+					}
+				}
+				break;
+			}
+
+			case "DECRYPT_RESPONSE": {
+				const response = payload as DecryptResponse;
+				const pending = this.pendingDecryptRequests.get(response.requestId);
+				if (pending) {
+					clearTimeout(pending.timeout);
+					this.pendingDecryptRequests.delete(response.requestId);
+					if (response.error) {
+						pending.reject(new Error(response.error));
+					} else if (response.decrypted !== undefined) {
+						pending.resolve(response.decrypted);
+					} else {
+						pending.reject(new Error("No decrypted data returned"));
+					}
+				}
+				break;
+			}
+
+			case "GET_FRIEND_PUBKEY_RESPONSE": {
+				const response = payload as GetFriendPubkeyResponse;
+				const pending = this.pendingGetFriendPubkeyRequests.get(response.requestId);
+				if (pending) {
+					clearTimeout(pending.timeout);
+					this.pendingGetFriendPubkeyRequests.delete(response.requestId);
+					if (response.error) {
+						pending.reject(new Error(response.error));
+					} else if (response.publicKey) {
+						pending.resolve(response.publicKey);
+					} else {
+						pending.reject(new Error("No public key returned"));
+					}
+				}
+				break;
+			}
 		}
 	}
 
@@ -306,6 +554,24 @@ export class SigmaIframeSigner {
 			pending.reject(error);
 		}
 		this.pendingAIPRequests.clear();
+
+		for (const [, pending] of this.pendingEncryptRequests) {
+			clearTimeout(pending.timeout);
+			pending.reject(error);
+		}
+		this.pendingEncryptRequests.clear();
+
+		for (const [, pending] of this.pendingDecryptRequests) {
+			clearTimeout(pending.timeout);
+			pending.reject(error);
+		}
+		this.pendingDecryptRequests.clear();
+
+		for (const [, pending] of this.pendingGetFriendPubkeyRequests) {
+			clearTimeout(pending.timeout);
+			pending.reject(error);
+		}
+		this.pendingGetFriendPubkeyRequests.clear();
 	}
 
 	/**
