@@ -467,8 +467,15 @@ export const sigmaProvider = (
 							}
 
 							// Get request body for signature verification
-							// Client sends JSON body, so we verify against the JSON string
-							const bodyString = JSON.stringify(body);
+							// OAuth standard: token endpoint uses application/x-www-form-urlencoded
+							// Reconstruct the URL-encoded string that the client signed
+							const bodyParams = new URLSearchParams();
+							for (const [key, value] of Object.entries(body)) {
+								if (value !== undefined && value !== null) {
+									bodyParams.set(key, String(value));
+								}
+							}
+							const bodyString = bodyParams.toString();
 
 							// Verify Bitcoin signature with body
 							// Use full path including /api/auth prefix since that's what the client signs
@@ -576,8 +583,14 @@ export const sigmaProvider = (
 								});
 							}
 
-							// Client sends JSON body, so we verify against the JSON string
-							const bodyString = JSON.stringify(body);
+							// OAuth standard: token endpoint uses application/x-www-form-urlencoded
+							const bodyParams = new URLSearchParams();
+							for (const [key, value] of Object.entries(body)) {
+								if (value !== undefined && value !== null) {
+									bodyParams.set(key, String(value));
+								}
+							}
+							const bodyString = bodyParams.toString();
 
 							const verifyData = {
 								requestPath: "/api/auth/oauth2/token",
