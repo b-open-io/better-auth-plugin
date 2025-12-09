@@ -39,7 +39,6 @@ export interface CallbackRouteConfig {
  * // app/api/auth/sigma/callback/route.ts
  * import { createCallbackHandler } from "@sigma-auth/better-auth-plugin/next";
  *
- * export const runtime = "nodejs";
  * export const POST = createCallbackHandler();
  * ```
  */
@@ -156,7 +155,46 @@ export function createCallbackHandler(config?: CallbackRouteConfig) {
 }
 
 /**
- * Runtime configuration for Next.js route
- * Set to nodejs to support bitcoin-auth cryptography
+ * Error info extracted from URL search params
  */
-export const runtime = "nodejs";
+export interface SigmaAuthError {
+	error: string;
+	errorDescription: string;
+}
+
+/**
+ * Parse error from URL search params on error callback page
+ *
+ * @param searchParams - URL search params from error callback
+ * @returns Parsed error info or null if no error
+ *
+ * @example
+ * ```typescript
+ * // app/auth/sigma/error/page.tsx
+ * import { parseErrorParams } from "@sigma-auth/better-auth-plugin/next";
+ *
+ * export default function ErrorPage() {
+ *   const searchParams = useSearchParams();
+ *   const error = parseErrorParams(searchParams);
+ *
+ *   return (
+ *     <div>
+ *       <h1>{error?.error || "Unknown Error"}</h1>
+ *       <p>{error?.errorDescription}</p>
+ *     </div>
+ *   );
+ * }
+ * ```
+ */
+export function parseErrorParams(
+	searchParams: URLSearchParams | { get: (key: string) => string | null },
+): SigmaAuthError | null {
+	const error = searchParams.get("error");
+	if (!error) return null;
+
+	return {
+		error,
+		errorDescription:
+			searchParams.get("error_description") || "An unknown error occurred",
+	};
+}

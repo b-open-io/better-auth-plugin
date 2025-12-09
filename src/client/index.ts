@@ -84,7 +84,7 @@ export interface SigmaSignInOptions {
 	bapId?: string;
 	/** Callback URL after OAuth redirect (default: /auth/sigma/callback) */
 	callbackURL?: string;
-	/** Error callback URL */
+	/** Error callback URL (default: /auth/sigma/error) */
 	errorCallbackURL?: string;
 	/** OAuth provider (e.g., 'github', 'google') */
 	provider?: string;
@@ -407,6 +407,15 @@ export const sigmaClient = () => {
 						if (typeof window !== "undefined") {
 							sessionStorage.setItem("sigma_oauth_state", state);
 							sessionStorage.setItem("sigma_code_verifier", codeVerifier);
+							// Store error callback URL for error handling
+							if (options?.errorCallbackURL) {
+								sessionStorage.setItem(
+									"sigma_error_callback",
+									options.errorCallbackURL,
+								);
+							} else {
+								sessionStorage.removeItem("sigma_error_callback");
+							}
 						}
 
 						const authUrl =
@@ -840,6 +849,74 @@ export const sigmaClient = () => {
 					isReady: (): boolean => {
 						const bapId = storedBapId || loadStoredBapId();
 						return !!bapId;
+					},
+
+					/**
+					 * Get the stored error callback URL
+					 * @returns The error callback URL or default /auth/sigma/error
+					 */
+					getErrorCallbackURL: (): string => {
+						if (typeof window === "undefined") return "/auth/sigma/error";
+						return (
+							sessionStorage.getItem("sigma_error_callback") ||
+							"/auth/sigma/error"
+						);
+					},
+
+					/**
+					 * Redirect to error callback with error details
+					 * Use this in your callback page's catch block
+					 *
+					 * @param error - The error object from handleCallback
+					 *
+					 * @example
+					 * ```typescript
+					 * try {
+					 *   const result = await authClient.sigma.handleCallback(searchParams);
+					 * } catch (err) {
+					 *   authClient.sigma.redirectToError(err);
+					 * }
+					 * ```
+					 */
+					redirectToError: (error: unknown): void => {
+						if (typeof window === "undefined") return;
+
+						const errorCallbackURL =
+							sessionStorage.getItem("sigma_error_callback") ||
+							"/auth/sigma/error";
+
+						// Clean up session storage
+						sessionStorage.removeItem("sigma_error_callback");
+						sessionStorage.removeItem("sigma_oauth_state");
+						sessionStorage.removeItem("sigma_code_verifier");
+
+						// Build error URL with query params
+						const errorUrl = new URL(errorCallbackURL, window.location.origin);
+
+						if (
+							error &&
+							typeof error === "object" &&
+							"title" in error &&
+							"message" in error
+						) {
+							const oauthError = error as OAuthCallbackError;
+							errorUrl.searchParams.set("error", oauthError.title);
+							errorUrl.searchParams.set(
+								"error_description",
+								oauthError.message,
+							);
+						} else if (error instanceof Error) {
+							errorUrl.searchParams.set("error", "callback_error");
+							errorUrl.searchParams.set("error_description", error.message);
+						} else {
+							errorUrl.searchParams.set("error", "unknown_error");
+							errorUrl.searchParams.set(
+								"error_description",
+								"An unknown error occurred",
+							);
+						}
+
+						window.location.href = errorUrl.toString();
 					},
 				},
 			};

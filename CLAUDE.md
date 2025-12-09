@@ -1,111 +1,91 @@
----
-description: Use Bun instead of Node.js, npm, pnpm, or vite.
-globs: "*.ts, *.tsx, *.html, *.css, *.js, *.jsx, package.json"
-alwaysApply: false
----
+# CLAUDE.md
 
-Default to using Bun instead of Node.js.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-- Use `bun <file>` instead of `node <file>` or `ts-node <file>`
-- Use `bun test` instead of `jest` or `vitest`
-- Use `bun build <file.html|file.ts|file.css>` instead of `webpack` or `esbuild`
-- Use `bun install` instead of `npm install` or `yarn install` or `pnpm install`
-- Use `bun run <script>` instead of `npm run <script>` or `yarn run <script>` or `pnpm run <script>`
-- Bun automatically loads .env, so don't use dotenv.
+## Overview
 
-## APIs
+Better Auth plugins for Sigma Identity - Bitcoin-native authentication with BAP (Bitcoin Attestation Protocol) identity support. This package provides OAuth/OIDC integration for apps authenticating with Sigma Identity.
 
-- `Bun.serve()` supports WebSockets, HTTPS, and routes. Don't use `express`.
-- `bun:sqlite` for SQLite. Don't use `better-sqlite3`.
-- `Bun.redis` for Redis. Don't use `ioredis`.
-- `Bun.sql` for Postgres. Don't use `pg` or `postgres.js`.
-- `WebSocket` is built-in. Don't use `ws`.
-- Prefer `Bun.file` over `node:fs`'s readFile/writeFile
-- Bun.$`ls` instead of execa.
+## Commands
 
-## Testing
-
-Use `bun test` to run tests.
-
-```ts#index.test.ts
-import { test, expect } from "bun:test";
-
-test("hello world", () => {
-  expect(1).toBe(1);
-});
+```bash
+bun install          # Install dependencies
+bun run build        # Build with TypeScript (tsc)
+bun run dev          # Watch mode for development
+bun run lint         # Biome check
+bun run lint:fix     # Auto-fix with Biome
+bun run lint:unsafe  # Auto-fix with unsafe transforms
 ```
 
-## Frontend
+Publishing: `bun run prepublishOnly` runs lint, clean, and build before npm publish.
 
-Use HTML imports with `Bun.serve()`. Don't use `vite`. HTML imports fully support React, CSS, Tailwind.
+## Architecture
 
-Server:
+### Entry Points
 
-```ts#index.ts
-import index from "./index.html"
+The package exposes four entry points via package.json exports:
 
-Bun.serve({
-  routes: {
-    "/": index,
-    "/api/users/:id": {
-      GET: (req) => {
-        return new Response(JSON.stringify({ id: req.params.id }));
-      },
-    },
-  },
-  // optional websocket support
-  websocket: {
-    open: (ws) => {
-      ws.send("Hello, world!");
-    },
-    message: (ws, message) => {
-      ws.send(message);
-    },
-    close: (ws) => {
-      // handle close
-    }
-  },
-  development: {
-    hmr: true,
-    console: true,
-  }
-})
-```
+- **`/client`** (`src/client/index.ts`) - Browser OAuth client with PKCE, iframe-based signing
+- **`/server`** (`src/server/index.ts`) - Server-side token exchange with bitcoin-auth signatures
+- **`/next`** (`src/next/index.ts`) - Next.js App Router handlers for OAuth callback
+- **`/provider`** (`src/provider/index.ts`) - Better Auth server plugin for running your own OIDC provider
 
-HTML files can import .tsx, .jsx or .js files directly and Bun's bundler will transpile & bundle automatically. `<link>` tags can point to stylesheets and Bun's CSS bundler will bundle.
+### Client Plugin Flow
 
-```html#index.html
-<html>
-  <body>
-    <h1>Hello, world!</h1>
-    <script type="module" src="./frontend.tsx"></script>
-  </body>
-</html>
-```
+The `sigmaClient()` plugin fronts Better Auth's OIDC authorize endpoint:
 
-With the following `frontend.tsx`:
+1. Client calls `/oauth2/authorize` (custom gate, not `/api/auth/oauth2/authorize`)
+2. Gate checks wallet status before forwarding to Better Auth
+3. PKCE parameters stored in sessionStorage
+4. After redirect, `handleCallback()` exchanges code via server endpoint
+5. `SigmaIframeSigner` provides signing without exposing keys (iframe at `/signer`)
 
-```tsx#frontend.tsx
-import React from "react";
+### Provider Plugin Flow
 
-// import .css files directly and it works
-import './index.css';
+The `sigmaProvider()` plugin validates OAuth token exchange:
 
-import { createRoot } from "react-dom/client";
+1. Before `/oauth2/token` hook validates bitcoin-auth signature on X-Auth-Token header
+2. Verifies pubkey matches client's registered memberPubkey in metadata
+3. After hooks store selectedBapId in consent and access token records
+4. Supports BAP ID resolution via optional `resolveBAPId` callback
 
-const root = createRoot(document.body);
+### Admin Plugin
 
-export default function Frontend() {
-  return <h1>Hello, world!</h1>;
-}
+The `sigmaAdminPlugin()` provides Bitcoin-native role resolution:
 
-root.render(<Frontend />);
-```
+- NFT collection ownership → roles
+- Token balance thresholds → roles
+- BAP ID whitelist for admin
+- Custom `extendRoles` callback
 
-Then, run index.ts
+### Iframe Signer Protocol
 
-```sh
-bun --hot ./index.ts
-```
+`SigmaIframeSigner` communicates with Sigma's `/signer` page via postMessage:
+- `SET_IDENTITY` - Set BAP ID for signing
+- `SIGN_REQUEST` / `SIGN_RESPONSE` - BSM or BRC-77 signatures
+- `SIGN_AIP_REQUEST` / `SIGN_AIP_RESPONSE` - AIP signatures for OP_RETURN
+- `ENCRYPT_REQUEST` / `DECRYPT_REQUEST` - Type42 key derivation encryption
+- `GET_FRIEND_PUBKEY_REQUEST` - Derived public key for friend
 
-For more information, read the Bun API docs in `node_modules/bun-types/docs/**.md`.
+## Key Dependencies
+
+- `better-auth` - Core auth framework (peer dependency)
+- `bitcoin-auth` - Token generation/verification for signed requests
+- `@bsv/sdk` - Bitcoin SV SDK (optional peer dependency for PublicKey)
+- `@neondatabase/serverless` - Postgres pool type (optional)
+- `zod` - Schema validation (optional)
+
+## Environment Variables
+
+Client apps need:
+- `NEXT_PUBLIC_SIGMA_AUTH_URL` - Auth server URL (default: https://auth.sigmaidentity.com)
+- `NEXT_PUBLIC_SIGMA_CLIENT_ID` - OAuth client ID
+- `SIGMA_MEMBER_PRIVATE_KEY` - WIF for signing token exchange (server-side)
+
+## Type System
+
+Types in `src/types/index.ts`:
+- `SigmaUserInfo` - OIDC userinfo with BAP extensions
+- `BAPProfile` - Bitcoin Attestation Protocol identity structure
+- `OAuthCallbackResult` / `OAuthCallbackError` - Callback handling types
+- Subscription, wallet, and NFT types for connected wallet features
