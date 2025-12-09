@@ -203,7 +203,7 @@ export const sigmaClient = () => {
 						if (!options?.clientId) {
 							throw new Error(
 								"[Sigma Auth] clientId is required for OAuth flow. " +
-								"Pass clientId in signIn.sigma({ clientId: 'your-app', ... }) or set NEXT_PUBLIC_SIGMA_CLIENT_ID environment variable."
+									"Pass clientId in signIn.sigma({ clientId: 'your-app', ... }) or set NEXT_PUBLIC_SIGMA_CLIENT_ID environment variable.",
 							);
 						}
 
