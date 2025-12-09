@@ -72,6 +72,9 @@ export interface SigmaSignInOptions {
 	provider?: string;
 	clientId?: string;
 	disableRedirect?: boolean;
+	// Better Auth's proxy extracts fetchOptions before creating body
+	// Use this to pass custom headers (like X-Auth-Token) through the proxy
+	fetchOptions?: BetterFetchOption;
 }
 
 // PKCE helper functions
@@ -168,14 +171,16 @@ export const sigmaClient = () => {
 						// 1. With authToken: Call local endpoint (for auth server login)
 						// 2. Without authToken: OAuth redirect (for external clients)
 						if (options?.authToken) {
-							// Auth server local sign-in - call endpoint with authToken
+							// Auth server local sign-in - call endpoint with authToken in header
+							// IMPORTANT: Spread fetchOptions FIRST so our explicit values override
 							const res = await $fetch("/sign-in/sigma", {
+								...fetchOptions,
 								method: "POST",
-								body: {},
+								body: {}, // Explicit empty body - authToken goes in header, not body
 								headers: {
+									...(fetchOptions?.headers as Record<string, string>),
 									"X-Auth-Token": options.authToken,
 								},
-								...fetchOptions,
 							});
 							return res;
 						}
