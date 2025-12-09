@@ -467,15 +467,13 @@ export const sigmaProvider = (
 							}
 
 							// Get request body for signature verification
-							const bodyString = new URLSearchParams(
-								Object.entries(body).map(
-									([k, v]) => [k, String(v)] as [string, string],
-								),
-							).toString();
+							// Client sends JSON body, so we verify against the JSON string
+							const bodyString = JSON.stringify(body);
 
 							// Verify Bitcoin signature with body
+							// Use full path including /api/auth prefix since that's what the client signs
 							const verifyData = {
-								requestPath: "/oauth2/token",
+								requestPath: "/api/auth/oauth2/token",
 								timestamp: parsed.timestamp,
 								body: bodyString,
 							};
@@ -578,14 +576,11 @@ export const sigmaProvider = (
 								});
 							}
 
-							const bodyString = new URLSearchParams(
-								Object.entries(body).map(
-									([k, v]) => [k, String(v)] as [string, string],
-								),
-							).toString();
+							// Client sends JSON body, so we verify against the JSON string
+							const bodyString = JSON.stringify(body);
 
 							const verifyData = {
-								requestPath: "/oauth2/token",
+								requestPath: "/api/auth/oauth2/token",
 								timestamp: parsed.timestamp,
 								body: bodyString,
 							};
