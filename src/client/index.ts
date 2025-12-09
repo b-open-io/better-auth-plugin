@@ -1,17 +1,13 @@
 import type { BetterFetchOption } from "@better-fetch/fetch";
 import type { BetterAuthClientPlugin } from "better-auth/client";
 import type {
-	BAPProfile,
 	ConnectedWallet,
-	NFT,
 	NFTListResponse,
 	NFTOwnershipResponse,
 	OAuthCallbackError,
 	OAuthCallbackResult,
-	SigmaUserInfo,
 	SubscriptionStatus,
 	SubscriptionTier,
-	WalletNFTs,
 } from "../types/index.js";
 import { SigmaIframeSigner } from "./signer.js";
 
@@ -761,7 +757,11 @@ export const sigmaClient = () => {
 						const signerInstance = await getOrCreateSigner();
 						signerInstance.setIdentity(bapId);
 
-						return signerInstance.decrypt(ciphertext, friendBapId, theirPublicKey);
+						return signerInstance.decrypt(
+							ciphertext,
+							friendBapId,
+							theirPublicKey,
+						);
 					},
 
 					/**

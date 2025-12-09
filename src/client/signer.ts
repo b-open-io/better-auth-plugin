@@ -84,9 +84,12 @@ export class SigmaIframeSigner {
 	private iframe: HTMLIFrameElement | null = null;
 	private pendingRequests: Map<string, PendingRequest<string>> = new Map();
 	private pendingAIPRequests: Map<string, PendingRequest<string[]>> = new Map();
-	private pendingEncryptRequests: Map<string, PendingRequest<string>> = new Map();
-	private pendingDecryptRequests: Map<string, PendingRequest<string>> = new Map();
-	private pendingGetFriendPubkeyRequests: Map<string, PendingRequest<string>> = new Map();
+	private pendingEncryptRequests: Map<string, PendingRequest<string>> =
+		new Map();
+	private pendingDecryptRequests: Map<string, PendingRequest<string>> =
+		new Map();
+	private pendingGetFriendPubkeyRequests: Map<string, PendingRequest<string>> =
+		new Map();
 	private initialized = false;
 	private boundMessageHandler: ((event: MessageEvent) => void) | null = null;
 	private currentBapId: string | null = null;
@@ -405,7 +408,11 @@ export class SigmaIframeSigner {
 				reject(new Error("Get friend public key request timeout"));
 			}, 30000);
 
-			this.pendingGetFriendPubkeyRequests.set(requestId, { resolve, reject, timeout });
+			this.pendingGetFriendPubkeyRequests.set(requestId, {
+				resolve,
+				reject,
+				timeout,
+			});
 
 			contentWindow.postMessage(
 				{ type: "GET_FRIEND_PUBKEY_REQUEST", payload: request },
@@ -522,7 +529,9 @@ export class SigmaIframeSigner {
 
 			case "GET_FRIEND_PUBKEY_RESPONSE": {
 				const response = payload as GetFriendPubkeyResponse;
-				const pending = this.pendingGetFriendPubkeyRequests.get(response.requestId);
+				const pending = this.pendingGetFriendPubkeyRequests.get(
+					response.requestId,
+				);
 				if (pending) {
 					clearTimeout(pending.timeout);
 					this.pendingGetFriendPubkeyRequests.delete(response.requestId);
