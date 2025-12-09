@@ -13,6 +13,7 @@ interface NextRequest {
 	nextUrl: {
 		origin: string;
 	};
+	headers: Headers;
 }
 
 /**
@@ -92,7 +93,21 @@ export function createCallbackHandler(config?: CallbackRouteConfig) {
 			}
 
 			const callbackPath = config?.callbackPath || "/auth/sigma/callback";
-			const redirectUri = `${request.nextUrl.origin}${callbackPath}`;
+
+			// Determine the origin - prefer explicit env var, then x-forwarded headers, then request origin
+			// This handles reverse proxy scenarios where request.nextUrl.origin returns localhost
+			let origin = process.env.NEXT_PUBLIC_APP_URL;
+			if (!origin) {
+				const forwardedHost = request.headers.get("x-forwarded-host");
+				const forwardedProto =
+					request.headers.get("x-forwarded-proto") || "https";
+				if (forwardedHost) {
+					origin = `${forwardedProto}://${forwardedHost}`;
+				} else {
+					origin = request.nextUrl.origin;
+				}
+			}
+			const redirectUri = `${origin}${callbackPath}`;
 
 			console.log("[Sigma OAuth Callback] Exchanging code for tokens:", {
 				issuerUrl,

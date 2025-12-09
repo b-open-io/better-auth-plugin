@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.0.22
+
+### Added
+- **Admin plugin**: `getWalletAddresses` option to check NFT/token ownership across all connected wallets
+  - Sums token balances across wallets for threshold checks
+  - Checks any wallet for NFT collection ownership
+
+### Changed
+- Admin plugin now requires `getWalletAddresses` instead of relying on single BAP address
+
 ## 0.0.21
 
 ### Added
