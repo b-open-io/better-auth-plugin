@@ -84,7 +84,7 @@ export const signIn = authClient.signIn;
 This server-side endpoint exchanges the OAuth code for tokens.
 
 ```typescript
-// app/api/auth/callback/route.ts
+// app/api/auth/sigma/callback/route.ts
 import { createCallbackHandler } from "@sigma-auth/better-auth-plugin/next";
 
 export const runtime = "nodejs";
@@ -96,7 +96,7 @@ export const POST = createCallbackHandler();
 This page handles the OAuth redirect and stores the authenticated user.
 
 ```typescript
-// app/callback/page.tsx
+// app/auth/sigma/callback/page.tsx
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
@@ -179,7 +179,7 @@ import { signIn } from "@/lib/auth";
 const handleSignIn = () => {
   signIn.sigma({
     clientId: process.env.NEXT_PUBLIC_SIGMA_CLIENT_ID || "your-app",
-    callbackURL: "/callback",
+    // callbackURL defaults to /auth/sigma/callback
   });
 };
 ```
@@ -261,8 +261,8 @@ export const auth = betterAuth({
 
 When using OAuth flow, there are **two different endpoints**:
 
-1. **OAuth Redirect URI** (`/callback`) - Where the auth server redirects after authorization
-2. **Token Exchange API** (`/api/auth/callback`) - Internal endpoint that exchanges code for tokens
+1. **OAuth Redirect URI** (`/auth/sigma/callback`) - Where the auth server redirects after authorization
+2. **Token Exchange API** (`/api/auth/sigma/callback`) - Internal endpoint that exchanges code for tokens
 
 The redirect URI is what you configure in your OAuth client settings. The token exchange API is called internally by your callback page.
 

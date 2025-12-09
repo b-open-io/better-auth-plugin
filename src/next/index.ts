@@ -26,7 +26,7 @@ export interface CallbackRouteConfig {
 	clientId?: string;
 	/** Member private key for signing (default: SIGMA_MEMBER_PRIVATE_KEY env) */
 	memberPrivateKey?: string;
-	/** Callback path (default: /callback) */
+	/** Callback path (default: /auth/sigma/callback) */
 	callbackPath?: string;
 }
 
@@ -36,22 +36,11 @@ export interface CallbackRouteConfig {
  *
  * @example
  * ```typescript
- * // app/api/auth/callback/route.ts
+ * // app/api/auth/sigma/callback/route.ts
  * import { createCallbackHandler } from "@sigma-auth/better-auth-plugin/next";
  *
  * export const runtime = "nodejs";
  * export const POST = createCallbackHandler();
- * ```
- *
- * @example
- * ```typescript
- * // With custom config
- * import { createCallbackHandler } from "@sigma-auth/better-auth-plugin/next";
- *
- * export const runtime = "nodejs";
- * export const POST = createCallbackHandler({
- *   callbackPath: "/auth/callback"
- * });
  * ```
  */
 export function createCallbackHandler(config?: CallbackRouteConfig) {
@@ -103,7 +92,7 @@ export function createCallbackHandler(config?: CallbackRouteConfig) {
 				);
 			}
 
-			const callbackPath = config?.callbackPath || "/callback";
+			const callbackPath = config?.callbackPath || "/auth/sigma/callback";
 			const redirectUri = `${request.nextUrl.origin}${callbackPath}`;
 
 			console.log("[Sigma OAuth Callback] Exchanging code for tokens:", {

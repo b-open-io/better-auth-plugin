@@ -82,7 +82,7 @@ export interface SigmaSignInOptions {
 	authToken?: string;
 	/** Selected BAP identity ID (for multi-identity wallets) */
 	bapId?: string;
-	/** Callback URL after OAuth redirect (default: /callback) */
+	/** Callback URL after OAuth redirect (default: /auth/sigma/callback) */
 	callbackURL?: string;
 	/** Error callback URL */
 	errorCallbackURL?: string;
@@ -418,7 +418,7 @@ export const sigmaClient = () => {
 						// Ensure redirect_uri is always absolute (OAuth requires absolute URLs)
 						const origin =
 							typeof window !== "undefined" ? window.location.origin : "";
-						const callbackPath = options?.callbackURL || "/callback";
+						const callbackPath = options?.callbackURL || "/auth/sigma/callback";
 						const redirectUri = callbackPath.startsWith("http")
 							? callbackPath
 							: `${origin}${callbackPath.startsWith("/") ? callbackPath : `/${callbackPath}`}`;
@@ -519,7 +519,7 @@ export const sigmaClient = () => {
 						// Exchange code for tokens via backend API
 						// This must be done server-side because it requires bitcoin-auth signature
 						try {
-							const response = await fetch("/api/auth/callback", {
+							const response = await fetch("/api/auth/sigma/callback", {
 								method: "POST",
 								headers: {
 									"Content-Type": "application/json",

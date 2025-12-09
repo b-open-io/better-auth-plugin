@@ -4,6 +4,15 @@ import type { SigmaUserInfo } from "../types/index.js";
 // Re-export types for convenience
 export type { BAPProfile, SigmaUserInfo } from "../types/index.js";
 
+// Re-export admin plugin
+export {
+	type ExtendRolesCallback,
+	type NFTCollection,
+	type SigmaAdminOptions,
+	sigmaAdminPlugin,
+	type TokenGate,
+} from "./admin.js";
+
 export interface TokenExchangeOptions {
 	code: string;
 	redirectUri: string;
