@@ -89,9 +89,10 @@ export async function exchangeCodeForTokens(
 
 	// Create signed auth token using bitcoin-auth
 	// CRITICAL: Must include body in signature to prevent request tampering
+	// Path must match what the server expects: /api/auth/oauth2/token
 	const authToken = getAuthToken({
 		privateKeyWif: memberPrivateKey,
-		requestPath: "/oauth2/token",
+		requestPath: "/api/auth/oauth2/token",
 		body: requestBody,
 	});
 
