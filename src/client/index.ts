@@ -62,18 +62,31 @@ const loadStoredBapId = (): string | null => {
 };
 
 /**
- * Options for Sigma sign-in
+ * Options for Sigma sign-in (OAuth redirect mode)
+ * When authToken is NOT provided, clientId is REQUIRED for OAuth flow
  */
 export interface SigmaSignInOptions {
+	/** Auth token for direct sign-in (auth server only) */
 	authToken?: string;
-	bapId?: string; // Selected BAP identity ID (for multi-identity wallets)
+	/** Selected BAP identity ID (for multi-identity wallets) */
+	bapId?: string;
+	/** Callback URL after OAuth redirect (default: /callback) */
 	callbackURL?: string;
+	/** Error callback URL */
 	errorCallbackURL?: string;
+	/** OAuth provider (e.g., 'github', 'google') */
 	provider?: string;
+	/**
+	 * OAuth client ID - REQUIRED for OAuth redirect flow
+	 * Get this from your OAuth client registration
+	 */
 	clientId?: string;
+	/** Disable automatic redirect (for testing) */
 	disableRedirect?: boolean;
-	// Better Auth's proxy extracts fetchOptions before creating body
-	// Use this to pass custom headers (like X-Auth-Token) through the proxy
+	/**
+	 * Better Auth's proxy extracts fetchOptions before creating body
+	 * Use this to pass custom headers (like X-Auth-Token) through the proxy
+	 */
 	fetchOptions?: BetterFetchOption;
 }
 
@@ -186,6 +199,14 @@ export const sigmaClient = () => {
 						}
 
 						// External OAuth client - redirect to auth server
+						// Validate required clientId for OAuth flow
+						if (!options?.clientId) {
+							throw new Error(
+								"[Sigma Auth] clientId is required for OAuth flow. " +
+								"Pass clientId in signIn.sigma({ clientId: 'your-app', ... }) or set NEXT_PUBLIC_SIGMA_CLIENT_ID environment variable."
+							);
+						}
+
 						const state = Math.random().toString(36).substring(7);
 
 						// Generate PKCE parameters for public clients
@@ -212,6 +233,7 @@ export const sigmaClient = () => {
 							: `${origin}${callbackPath.startsWith("/") ? callbackPath : `/${callbackPath}`}`;
 
 						const params = new URLSearchParams({
+							client_id: options.clientId,
 							redirect_uri: redirectUri,
 							response_type: "code",
 							state,
@@ -219,10 +241,6 @@ export const sigmaClient = () => {
 							code_challenge: codeChallenge,
 							code_challenge_method: "S256",
 						});
-
-						if (options?.clientId) {
-							params.append("client_id", options.clientId);
-						}
 
 						if (options?.provider) {
 							params.append("provider", options.provider);
