@@ -160,11 +160,9 @@ export interface SigmaJWTPayload extends JWTPayload {
 	role?: string; // User role (from Better Auth admin plugin)
 	scope?: string; // OAuth scopes
 
-	// BAP identity (may be present depending on scopes)
-	bapId?: string;
-	bap?: {
-		idKey?: string;
-	};
+	// BAP identity claims (present when bsv:tools scope requested)
+	bap_id?: string; // BAP identity ID (direct claim)
+	bap?: string; // Full BAP identity as JSON string
 }
 
 /**

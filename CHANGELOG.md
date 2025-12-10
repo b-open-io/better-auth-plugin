@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.26
+
+### Fixed
+- `SigmaJWTPayload.bap_id` uses correct claim name (was `bapId`)
+- `SigmaJWTPayload.bap` is typed as `string` (JSON-encoded BAP profile)
+
 ## 0.0.25
 
 ### Added
