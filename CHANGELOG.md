@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.0.25
+
+### Added
+- `SigmaJWTPayload` type extending Better Auth's `JWTPayload` for typed JWT access tokens
+- Export `SigmaJWTPayload` from client module
+
+## 0.0.24
+
+### Added
+- Support `RAILWAY_PUBLIC_DOMAIN` environment variable for redirect URI detection
+
+## 0.0.23
+
+### Fixed
+- Fix redirect URI detection behind reverse proxy
+
 ## 0.0.22
 
 ### Added

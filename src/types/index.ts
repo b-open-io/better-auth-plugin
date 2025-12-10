@@ -1,4 +1,4 @@
-import type { User } from "better-auth";
+import type { JWTPayload, User } from "better-auth";
 
 /**
  * BAP Profile structure from api.sigmaidentity.com
@@ -143,6 +143,28 @@ export interface NFT {
 	origin?: NFTOrigin;
 	height?: number;
 	idx?: number;
+}
+
+/**
+ * JWT access token payload from Sigma Auth
+ * Extends Better Auth's JWTPayload with Sigma-specific claims
+ *
+ * Inherited from JWTPayload:
+ * - sub, iss, aud, exp, iat, jti, email, name
+ */
+export interface SigmaJWTPayload extends JWTPayload {
+	// Sigma-specific claims (required)
+	pubkey: string; // Bitcoin public key
+
+	// Sigma-specific claims (optional)
+	role?: string; // User role (from Better Auth admin plugin)
+	scope?: string; // OAuth scopes
+
+	// BAP identity (may be present depending on scopes)
+	bapId?: string;
+	bap?: {
+		idKey?: string;
+	};
 }
 
 /**

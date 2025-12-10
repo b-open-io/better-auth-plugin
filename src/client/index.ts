@@ -20,6 +20,7 @@ export type {
 	NFTOwnershipResponse,
 	OAuthCallbackError,
 	OAuthCallbackResult,
+	SigmaJWTPayload,
 	SigmaUserInfo,
 	SubscriptionStatus,
 	SubscriptionTier,
