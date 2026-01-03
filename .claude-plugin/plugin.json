@@ -7,7 +7,5 @@
     "url": "https://github.com/b-open-io"
   },
   "repository": "https://github.com/b-open-io/better-auth-plugin",
-  "keywords": ["sigma", "auth", "bitcoin", "oauth", "better-auth", "bap"],
-  "skills": "./skills",
-  "agents": "./agents"
+  "keywords": ["sigma", "auth", "bitcoin", "oauth", "better-auth", "bap"]
 }
