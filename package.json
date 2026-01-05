@@ -22,6 +22,10 @@
 			"types": "./dist/next/index.d.ts",
 			"import": "./dist/next/index.js"
 		},
+		"./payload": {
+			"types": "./dist/payload/index.d.ts",
+			"import": "./dist/payload/index.js"
+		},
 		"./provider": {
 			"types": "./dist/provider/index.d.ts",
 			"import": "./dist/provider/index.js"
@@ -62,6 +66,7 @@
 		"better-auth": "^1.4.5",
 		"@bsv/sdk": "^1.9.9",
 		"@neondatabase/serverless": "^1.0.2",
+		"payload-auth": "^0.6.0",
 		"zod": "^4.1.12"
 	},
 	"peerDependenciesMeta": {
@@ -69,6 +74,9 @@
 			"optional": true
 		},
 		"@neondatabase/serverless": {
+			"optional": true
+		},
+		"payload-auth": {
 			"optional": true
 		},
 		"zod": {

@@ -17,6 +17,7 @@ This package provides multiple entry points for different use cases:
 - **`/client`** - Browser-side OAuth client with PKCE
 - **`/server`** - Server-side utilities for token exchange
 - **`/next`** - Next.js API route handlers
+- **`/payload`** - Payload CMS integration with session management
 - **`/provider`** - Better Auth server plugin for OIDC provider
 
 ## Architecture
@@ -232,6 +233,103 @@ const { data: session } = useSession();
 ```
 
 This requires setting up Better Auth server with the Sigma provider plugin on your domain.
+
+## Payload CMS Integration
+
+For Payload CMS apps using [payload-auth](https://github.com/b-open-io/payload-auth), the `/payload` entry point provides a callback handler that automatically:
+
+1. Exchanges the authorization code for tokens
+2. Finds or creates a user in your Payload users collection
+3. Creates a better-auth session in Payload's sessions collection
+4. Sets the session cookie
+
+### Setup
+
+```typescript
+// app/api/auth/sigma/callback/route.ts
+import configPromise from "@payload-config";
+import { createPayloadCallbackHandler } from "@sigma-auth/better-auth-plugin/payload";
+
+export const runtime = "nodejs";
+export const POST = createPayloadCallbackHandler({ configPromise });
+```
+
+### Custom User Creation
+
+Override the default user creation to add custom fields:
+
+```typescript
+export const POST = createPayloadCallbackHandler({
+  configPromise,
+  createUser: async (payload, sigmaUser) => {
+    return payload.create({
+      collection: "users",
+      data: {
+        email: sigmaUser.email || `${sigmaUser.sub}@sigma.identity`,
+        name: sigmaUser.name || sigmaUser.sub,
+        emailVerified: true,
+        role: ["subscriber"], // Custom role
+        bapId: sigmaUser.bap_id,
+        pubkey: sigmaUser.pubkey,
+      },
+    });
+  },
+});
+```
+
+### Configuration Options
+
+```typescript
+interface PayloadCallbackConfig {
+  /** Payload config promise (required) */
+  configPromise: Promise<unknown>;
+
+  /** Sigma Auth server URL (default: NEXT_PUBLIC_SIGMA_AUTH_URL) */
+  issuerUrl?: string;
+
+  /** OAuth client ID (default: NEXT_PUBLIC_SIGMA_CLIENT_ID) */
+  clientId?: string;
+
+  /** Member private key (default: SIGMA_MEMBER_PRIVATE_KEY env) */
+  memberPrivateKey?: string;
+
+  /** Callback path (default: /auth/sigma/callback) */
+  callbackPath?: string;
+
+  /** Users collection slug (default: "users") */
+  usersCollection?: string;
+
+  /** Sessions collection slug (default: "sessions") */
+  sessionsCollection?: string;
+
+  /** Session cookie name (default: "better-auth.session_token") */
+  sessionCookieName?: string;
+
+  /** Session duration in ms (default: 30 days) */
+  sessionDuration?: number;
+
+  /** Custom user creation handler */
+  createUser?: (payload, sigmaUser) => Promise<{ id: string | number }>;
+
+  /** Custom user lookup handler */
+  findUser?: (payload, sigmaUser) => Promise<{ id: string | number } | null>;
+}
+```
+
+### Response
+
+The callback returns `PayloadCallbackResult`:
+
+```typescript
+{
+  user: SigmaUserInfo;        // Sigma identity data
+  access_token: string;       // Access token
+  id_token: string;           // OIDC ID token
+  refresh_token?: string;     // Refresh token (if issued)
+  payloadUserId: string;      // Local Payload user ID
+  isNewUser: boolean;         // True if user was just created
+}
+```
 
 ## Server Plugin (Auth Provider)
 
