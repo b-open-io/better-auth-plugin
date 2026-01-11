@@ -1,6 +1,7 @@
 ---
 name: setup-nextjs
 description: Setup Sigma Auth OAuth integration in a Next.js application. Guides through installing @sigma-auth/better-auth-plugin, configuring environment variables, creating auth client, implementing sign-in flow, and setting up API routes for token exchange with Bitcoin-native authentication.
+allowed-tools: "Bash(bun:*)"
 ---
 
 # Setup Next.js with Sigma Auth
@@ -13,6 +14,59 @@ Guide for integrating Sigma Auth (Bitcoin-native authentication) into a Next.js 
 - Adding Bitcoin-native auth to existing Next.js project
 - Implementing OAuth flow with auth.sigmaidentity.com
 - Integrating BAP (Bitcoin Attestation Protocol) identity
+
+## Scripts
+
+### detect.ts - Project Analysis
+
+Analyzes your project structure and provides setup recommendations.
+
+```bash
+# Analyze current directory
+bun run scripts/detect.ts
+
+# Analyze specific project
+bun run scripts/detect.ts /path/to/project
+```
+
+**Output:** JSON report including:
+- Framework detection (Next.js App Router, Pages Router, Payload CMS)
+- Package manager detection
+- Directory structure
+- Existing auth configuration
+- Recommendations for setup
+
+### validate-env.ts - Environment Validation
+
+Validates required environment variables and checks WIF format.
+
+```bash
+# Check environment from .env.local or .env
+bun run scripts/validate-env.ts
+
+# Check specific env file
+bun run scripts/validate-env.ts .env.production
+```
+
+**Output:** JSON report with status of each required variable.
+
+### health-check.ts - Integration Health Check
+
+Tests connection to Sigma Auth server and validates OAuth configuration.
+
+```bash
+# Check default auth server
+bun run scripts/health-check.ts
+
+# Check specific auth server
+bun run scripts/health-check.ts https://auth.sigmaidentity.com
+```
+
+**Output:** JSON report including:
+- Auth server connectivity
+- OpenID configuration availability
+- JWKS endpoint status
+- Response latency
 
 ## Installation
 
@@ -52,41 +106,63 @@ import { signIn } from "@/lib/auth";
 
 export function SignInButton() {
   return (
-    <button onClick={() => signIn.social({ provider: "sigma", callbackURL: "/dashboard" })}>
+    <button onClick={() => signIn.sigma({
+      clientId: process.env.NEXT_PUBLIC_SIGMA_CLIENT_ID!,
+      callbackURL: "/auth/sigma/callback",
+    })}>
       Sign in with Sigma
     </button>
   );
 }
 ```
 
-### 4. Token Exchange API Route
-
-**App Router** (`app/api/auth/callback/sigma/route.ts`):
+### 4. Callback Page (`app/auth/sigma/callback/page.tsx`)
 
 ```typescript
-import { NextRequest, NextResponse } from "next/server";
-import { exchangeCodeForToken } from "@sigma-auth/better-auth-plugin/server";
+"use client";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { authClient } from "@/lib/auth";
 
-export async function GET(request: NextRequest) {
-  const code = request.nextUrl.searchParams.get("code");
-  
-  const tokenData = await exchangeCodeForToken({
-    code: code!,
-    authServerURL: process.env.NEXT_PUBLIC_SIGMA_AUTH_URL!,
-    clientId: process.env.NEXT_PUBLIC_SIGMA_CLIENT_ID!,
-    memberPrivateKey: process.env.SIGMA_MEMBER_PRIVATE_KEY!,
-    redirectURI: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback/sigma`,
-  });
+function CallbackContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [error, setError] = useState<string | null>(null);
 
-  const response = NextResponse.redirect(new URL("/dashboard", request.url));
-  response.cookies.set("access_token", tokenData.access_token, {
-    httpOnly: true,
-    secure: true,
-    maxAge: tokenData.expires_in,
-  });
+  useEffect(() => {
+    const handleCallback = async () => {
+      try {
+        const result = await authClient.sigma.handleCallback(searchParams);
+        localStorage.setItem("sigma_user", JSON.stringify(result.user));
+        localStorage.setItem("sigma_access_token", result.access_token);
+        router.push("/");
+      } catch (err: any) {
+        setError(err.message || "Authentication failed");
+      }
+    };
+    handleCallback();
+  }, [searchParams, router]);
 
-  return response;
+  if (error) return <div>Error: {error}</div>;
+  return <div>Completing sign in...</div>;
 }
+
+export default function CallbackPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <CallbackContent />
+    </Suspense>
+  );
+}
+```
+
+### 5. Token Exchange API (`app/api/auth/sigma/callback/route.ts`)
+
+```typescript
+import { createCallbackHandler } from "@sigma-auth/better-auth-plugin/next";
+
+export const runtime = "nodejs";
+export const POST = createCallbackHandler();
 ```
 
 ## OAuth Flow
@@ -95,17 +171,26 @@ export async function GET(request: NextRequest) {
 2. Redirects to auth.sigmaidentity.com
 3. User authenticates with Bitcoin wallet
 4. Callback with code → exchange for tokens
-5. Store tokens in HTTP-only cookies
+5. Store tokens locally (cross-domain cookies don't work)
 6. Redirect to dashboard
+
+## Security Considerations
+
+⚠️ **Token Storage Warning**: The examples above store tokens in `localStorage` for simplicity. For production:
+
+- Consider using HTTP-only cookies for refresh tokens
+- Implement token refresh logic
+- Use secure session management
+- Never expose `SIGMA_MEMBER_PRIVATE_KEY` to the client
 
 ## Key Concepts
 
-**Cross-Domain OAuth**: Better Auth's `useSession` only works when auth server is on same domain. For OAuth, manage state with tokens/cookies.
+**Cross-Domain OAuth**: Better Auth's `useSession` only works when auth server is on same domain. For OAuth with Sigma Identity, manage state with tokens stored locally.
 
 **Wallet Unlock Gate**: Plugin ensures wallet access before authentication (session → local backup → cloud backup → signup).
 
-**Security**: `SIGMA_MEMBER_PRIVATE_KEY` is server-only. Use HTTP-only cookies. Enable HTTPS in production.
+**PKCE**: The client plugin automatically handles PKCE (Proof Key for Code Exchange) for secure OAuth flows.
 
 ## Reference
 
-Full documentation in `/.flow/repos/better-auth-plugin/README.md`
+Full documentation: https://github.com/b-open-io/better-auth-plugin

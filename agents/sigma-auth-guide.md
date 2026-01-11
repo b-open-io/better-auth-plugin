@@ -418,6 +418,18 @@ if (response.status === 401) {
 
 ## Security Best Practices
 
+### Token Storage Warning
+
+⚠️ **localStorage is XSS vulnerable**: The cross-domain examples above store tokens in `localStorage` for simplicity. In production:
+
+- **Access tokens in memory**: Store in JavaScript variable, not localStorage
+- **Refresh tokens in httpOnly cookies**: If possible via same-domain proxy
+- **Short-lived access tokens**: 15-30 minutes max
+- **Token refresh on 401**: Implement automatic refresh logic
+- **Secure logout**: Clear all tokens and invalidate server-side
+
+For highest security, consider a same-domain BFF (Backend-for-Frontend) pattern that stores tokens server-side and proxies authenticated requests.
+
 ### Cookie Configuration
 ```typescript
 setCookie('session', token, {
