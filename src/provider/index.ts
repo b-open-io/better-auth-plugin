@@ -39,12 +39,12 @@ function createDebugLogger(enabled: boolean): DebugLogger {
 }
 
 /**
- * OAuth client type with Sigma metadata
- * Note: Better Auth stores metadata as a JSON string, not jsonb
+ * OAuth client type with Sigma fields
+ * Now uses direct columns instead of metadata JSON blob
  */
 interface OAuthClient {
 	clientId: string;
-	metadata?: string; // JSON string from Better Auth
+	memberPubkey?: string; // Direct column for signature verification
 }
 
 /**
@@ -172,11 +172,15 @@ export const sigmaProvider = (
 					},
 				},
 			},
-			oauthApplication: {
+			oauthClient: {
 				fields: {
-					owner_bap_id: {
+					ownerBapId: {
 						type: "string",
 						required: true,
+					},
+					memberPubkey: {
+						type: "string",
+						required: false,
 					},
 				},
 			},
@@ -412,7 +416,7 @@ export const sigmaProvider = (
 
 							// Lookup OAuth client by client_id
 							const clients = await ctx.context.adapter.findMany({
-								model: "oauthApplication",
+								model: "oauthClient",
 								where: [{ field: "clientId", value: clientId }],
 							});
 
@@ -448,22 +452,11 @@ export const sigmaProvider = (
 							}
 
 							// Verify the pubkey from signature matches the client's memberPubkey
-							if (!client.metadata) {
-								throw new APIError("UNAUTHORIZED", {
-									error: "invalid_client",
-									error_description: `Client ${clientId} has no metadata configured`,
-								});
-							}
-
-							const metadata = JSON.parse(client.metadata) as {
-								memberPubkey?: string;
-							};
-							const expectedPubkey = metadata.memberPubkey;
-
+							const expectedPubkey = client.memberPubkey;
 							if (!expectedPubkey) {
 								throw new APIError("UNAUTHORIZED", {
 									error: "invalid_client",
-									error_description: `Client ${clientId} has no memberPubkey in metadata - register your member public key`,
+									error_description: `Client ${clientId} has no memberPubkey configured`,
 								});
 							}
 
@@ -543,7 +536,7 @@ export const sigmaProvider = (
 
 							// Lookup OAuth client by client_id
 							const clients = await ctx.context.adapter.findMany({
-								model: "oauthApplication",
+								model: "oauthClient",
 								where: [{ field: "clientId", value: clientId }],
 							});
 
@@ -577,22 +570,11 @@ export const sigmaProvider = (
 								});
 							}
 
-							if (!client.metadata) {
-								throw new APIError("UNAUTHORIZED", {
-									error: "invalid_client",
-									error_description: `Client ${clientId} has no metadata configured`,
-								});
-							}
-
-							const metadata = JSON.parse(client.metadata) as {
-								memberPubkey?: string;
-							};
-							const expectedPubkey = metadata.memberPubkey;
-
+							const expectedPubkey = client.memberPubkey;
 							if (!expectedPubkey) {
 								throw new APIError("UNAUTHORIZED", {
 									error: "invalid_client",
-									error_description: `Client ${clientId} has no memberPubkey in metadata - register your member public key`,
+									error_description: `Client ${clientId} has no memberPubkey configured`,
 								});
 							}
 

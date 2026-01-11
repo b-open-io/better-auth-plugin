@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.0.28
+
+### Changed
+- **OAuth Provider Migration**: Updated schema from `oauthApplication` to `oauthClient` (Better Auth standard)
+- Sigma fields now use camelCase: `owner_bap_id` → `ownerBapId`
+- `memberPubkey` is now a direct column instead of JSON metadata blob
+- Updated all model references to use `oauthClient`
+
+### Updated
+- Dependencies: better-auth 1.4.10, @bsv/sdk 1.10.1, zod 4.3.5, biome 2.3.11
+
+## 0.0.27
+
+### Added
+- Setup scripts and security documentation
+- Cross-references between auth content
+
 ## 0.0.26
 
 ### Fixed

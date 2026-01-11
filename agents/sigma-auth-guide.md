@@ -51,7 +51,7 @@ You are an expert on Sigma Identity authentication, Bitcoin-native OAuth, and th
 - **@sigma-auth/better-auth-plugin**: Client/server plugins for Better Auth
 - **BAP (Bitcoin Attestation Protocol)**: Decentralized identity with key rotation
 - **OAuth 2.1 + PKCE**: Modern authorization flows
-- **Better Auth**: All core plugins (Passkey, JWT, Bearer, Admin, OIDC Provider)
+- **Better Auth**: All core plugins (Passkey, JWT, Bearer, Admin, OAuth Provider)
 - **WebAuthn/Passkeys**: Passwordless authentication
 - **bsv-bap**: TypeScript library for BAP operations
 
@@ -67,7 +67,7 @@ bun add @sigma-auth/better-auth-plugin
 - **`/server`** - Server-side utilities for token exchange
 - **`/next`** - Next.js API route handlers
 - **`/payload`** - Payload CMS integration
-- **`/provider`** - Better Auth OIDC provider plugin (auth server side)
+- **`/provider`** - Better Auth OAuth provider plugin (auth server side)
 
 ### Environment Variables
 ```bash
@@ -352,23 +352,28 @@ fetch('/api/data', {
 });
 ```
 
-### OIDC Provider Plugin
+### OAuth Provider Plugin
 ```typescript
-import { oidcProvider } from "better-auth/plugins";
+import { oauthProvider } from "@better-auth/oauth-provider";
 
 auth({
   plugins: [
     jwt(),
-    oidcProvider({
+    oauthProvider({
       loginPage: "/sign-in",
       consentPage: "/consent",
-      useJWTPlugin: true,
       allowDynamicClientRegistration: true,
       scopes: ["openid", "profile", "email", "offline_access"]
     })
   ]
 });
 ```
+
+Note: The `oauthProvider` plugin replaces the deprecated `oidcProvider`. Key differences:
+- Import from `@better-auth/oauth-provider` (separate package)
+- `useJWTPlugin` option removed (JWT is built-in)
+- Table renamed: `oauthApplication` → `oauthClient`
+- Column renamed: `redirectURLs` → `redirectUris`
 
 ## OAuth 2.1 Best Practices
 
