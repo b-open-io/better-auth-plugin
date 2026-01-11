@@ -1,7 +1,7 @@
 {
   "name": "sigma-auth",
   "version": "0.0.1",
-  "description": "Sigma Auth integration guide - Bitcoin-native authentication with Better Auth",
+  "description": "Sigma Auth - Bitcoin-native OAuth with Better Auth, BAP identity, and comprehensive authentication patterns",
   "author": {
     "name": "b-open-io",
     "url": "https://github.com/b-open-io"
