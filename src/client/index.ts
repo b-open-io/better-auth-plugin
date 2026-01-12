@@ -170,7 +170,7 @@ export const sigmaClient = () => {
 	return {
 		id: "sigma",
 
-		getActions: ($fetch, _$store?, _options?) => {
+		getActions: ($fetch) => {
 			return {
 				subscription: {
 					/**

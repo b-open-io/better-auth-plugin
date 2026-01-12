@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.31
+
+### Fixed
+- **Client Plugin Compatibility**: Simplified `getActions` to only accept `$fetch` parameter
+  - Extra parameters are optional in better-auth plugin interface
+  - Cleaner code without unused parameters
+
 ## 0.0.30
 
 ### Fixed
