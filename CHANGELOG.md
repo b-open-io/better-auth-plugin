@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.30
+
+### Fixed
+- **Client Plugin Compatibility**: Remove explicit type annotations from `getActions` to avoid BetterFetch type conflicts
+  - Let TypeScript infer parameter types from `BetterAuthClientPlugin` interface
+  - Fixes build errors with better-auth 1.4.10
+
 ## 0.0.29
 
 ### Fixed

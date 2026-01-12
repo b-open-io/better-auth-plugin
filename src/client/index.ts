@@ -1,6 +1,5 @@
-import type { BetterFetch, BetterFetchOption } from "@better-fetch/fetch";
+import type { BetterFetchOption } from "@better-fetch/fetch";
 import type { BetterAuthClientPlugin } from "better-auth/client";
-import type { BetterAuthClientOptions, ClientStore } from "better-auth/types";
 import type {
 	ConnectedWallet,
 	NFTListResponse,
@@ -171,11 +170,7 @@ export const sigmaClient = () => {
 	return {
 		id: "sigma",
 
-		getActions: (
-			$fetch: BetterFetch,
-			_$store?: ClientStore,
-			_options?: BetterAuthClientOptions,
-		) => {
+		getActions: ($fetch, _$store?, _options?) => {
 			return {
 				subscription: {
 					/**
