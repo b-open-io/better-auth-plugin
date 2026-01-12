@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.29
+
+### Fixed
+- **Client Plugin Compatibility**: Updated `getActions` signature to match better-auth 1.4.10
+  - Added `$store` and `options` parameters for compatibility with latest Better Auth client plugin interface
+
 ## 0.0.28
 
 ### Changed
