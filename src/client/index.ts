@@ -175,10 +175,7 @@ export const sigmaClient = () => {
 	return {
 		id: "sigma",
 
-		getActions: ($fetch, $store, options) => {
-			// Use options.baseURL when available, fallback to env/default
-			const getBaseURL = () => options?.baseURL || getSigmaUrl();
-
+		getActions: ($fetch, $store) => {
 			return {
 				subscription: {
 					/**
@@ -443,8 +440,10 @@ export const sigmaClient = () => {
 							}
 						}
 
-						// Use options.baseURL from client config, fallback to env/default
-						const authUrl = getBaseURL();
+						// IMPORTANT: OAuth authorization MUST go to Sigma auth server, not client's baseURL
+						// getBaseURL() returns the client app's URL (e.g., bopen.ai) which is wrong
+						// getSigmaUrl() returns the actual auth server (auth.sigmaidentity.com)
+						const authUrl = getSigmaUrl();
 
 						// Ensure redirect_uri is always absolute (OAuth requires absolute URLs)
 						const origin =
