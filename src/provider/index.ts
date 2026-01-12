@@ -208,6 +208,14 @@ export const sigmaProvider = (
 					},
 				},
 			},
+			verification: {
+				fields: {
+					updatedAt: {
+						type: "date",
+						required: false,
+					},
+				},
+			},
 		},
 
 		hooks: {
