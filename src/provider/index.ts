@@ -170,6 +170,10 @@ export const sigmaProvider = (
 						type: "string",
 						required: false,
 					},
+					updatedAt: {
+						type: "date",
+						required: false,
+					},
 				},
 			},
 			oauthClient: {
@@ -188,6 +192,18 @@ export const sigmaProvider = (
 				fields: {
 					selectedBapId: {
 						type: "string",
+						required: false,
+					},
+					updatedAt: {
+						type: "date",
+						required: false,
+					},
+				},
+			},
+			oauthRefreshToken: {
+				fields: {
+					updatedAt: {
+						type: "date",
 						required: false,
 					},
 				},
