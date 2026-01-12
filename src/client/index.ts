@@ -97,6 +97,11 @@ export interface SigmaSignInOptions {
 	/** Disable automatic redirect (for testing) */
 	disableRedirect?: boolean;
 	/**
+	 * Force OAuth redirect even if already signed in.
+	 * By default, if a session exists, signIn.sigma() returns it without redirecting.
+	 */
+	forceLogin?: boolean;
+	/**
 	 * Better Auth's proxy extracts fetchOptions before creating body
 	 * Use this to pass custom headers (like X-Auth-Token) through the proxy
 	 */
@@ -170,7 +175,10 @@ export const sigmaClient = () => {
 	return {
 		id: "sigma",
 
-		getActions: ($fetch) => {
+		getActions: ($fetch, $store, options) => {
+			// Use options.baseURL when available, fallback to env/default
+			const getBaseURL = () => options?.baseURL || getSigmaUrl();
+
 			return {
 				subscription: {
 					/**
@@ -369,13 +377,13 @@ export const sigmaClient = () => {
 				},
 				signIn: {
 					sigma: async (
-						options?: SigmaSignInOptions,
+						signInOptions?: SigmaSignInOptions,
 						fetchOptions?: BetterFetchOption,
 					) => {
 						// Two modes:
 						// 1. With authToken: Call local endpoint (for auth server login)
 						// 2. Without authToken: OAuth redirect (for external clients)
-						if (options?.authToken) {
+						if (signInOptions?.authToken) {
 							// Auth server local sign-in - call endpoint with authToken in header
 							// IMPORTANT: Spread fetchOptions FIRST so our explicit values override
 							const res = await $fetch("/sign-in/sigma", {
@@ -384,15 +392,31 @@ export const sigmaClient = () => {
 								body: {}, // Explicit empty body - authToken goes in header, not body
 								headers: {
 									...(fetchOptions?.headers as Record<string, string>),
-									"X-Auth-Token": options.authToken,
+									"X-Auth-Token": signInOptions.authToken,
 								},
 							});
 							return res;
 						}
 
+						// Check if already signed in (skip OAuth redirect if session exists)
+						// Use $store.session if available from Better Auth client
+						// Note: session atom exists at runtime but isn't explicitly typed in ClientStore
+						if ($store && !signInOptions?.forceLogin) {
+							const sessionAtom = (
+								$store as { session?: { get: () => unknown } }
+							).session;
+							if (sessionAtom) {
+								const currentSession = sessionAtom.get();
+								if (currentSession) {
+									// Already signed in, return existing session
+									return { data: currentSession, error: null };
+								}
+							}
+						}
+
 						// External OAuth client - redirect to auth server
 						// Validate required clientId for OAuth flow
-						if (!options?.clientId) {
+						if (!signInOptions?.clientId) {
 							throw new Error(
 								"[Sigma Auth] clientId is required for OAuth flow. " +
 									"Pass clientId in signIn.sigma({ clientId: 'your-app', ... }) or set NEXT_PUBLIC_SIGMA_CLIENT_ID environment variable.",
@@ -409,32 +433,30 @@ export const sigmaClient = () => {
 							sessionStorage.setItem("sigma_oauth_state", state);
 							sessionStorage.setItem("sigma_code_verifier", codeVerifier);
 							// Store error callback URL for error handling
-							if (options?.errorCallbackURL) {
+							if (signInOptions?.errorCallbackURL) {
 								sessionStorage.setItem(
 									"sigma_error_callback",
-									options.errorCallbackURL,
+									signInOptions.errorCallbackURL,
 								);
 							} else {
 								sessionStorage.removeItem("sigma_error_callback");
 							}
 						}
 
-						const authUrl =
-							typeof process !== "undefined"
-								? process.env.NEXT_PUBLIC_SIGMA_AUTH_URL ||
-									"https://auth.sigmaidentity.com"
-								: "https://auth.sigmaidentity.com";
+						// Use options.baseURL from client config, fallback to env/default
+						const authUrl = getBaseURL();
 
 						// Ensure redirect_uri is always absolute (OAuth requires absolute URLs)
 						const origin =
 							typeof window !== "undefined" ? window.location.origin : "";
-						const callbackPath = options?.callbackURL || "/auth/sigma/callback";
+						const callbackPath =
+							signInOptions?.callbackURL || "/auth/sigma/callback";
 						const redirectUri = callbackPath.startsWith("http")
 							? callbackPath
 							: `${origin}${callbackPath.startsWith("/") ? callbackPath : `/${callbackPath}`}`;
 
 						const params = new URLSearchParams({
-							client_id: options.clientId,
+							client_id: signInOptions.clientId,
 							redirect_uri: redirectUri,
 							response_type: "code",
 							state,
@@ -443,8 +465,8 @@ export const sigmaClient = () => {
 							code_challenge_method: "S256",
 						});
 
-						if (options?.provider) {
-							params.append("provider", options.provider);
+						if (signInOptions?.provider) {
+							params.append("provider", signInOptions.provider);
 						}
 
 						// IMPORTANT: Use custom authorize endpoint that FRONTS Better Auth

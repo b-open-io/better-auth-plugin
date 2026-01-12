@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.0.32
+
+### Changed
+- **Client Plugin**: Properly use Better Auth's `$store` and `options` parameters in `getActions`
+  - Use `options.baseURL` for auth server URL instead of hardcoded environment variable lookup
+  - Check `$store.session` before OAuth redirect to skip if already signed in
+  - Add `forceLogin` option to bypass session check when needed
+
+### Added
+- **`forceLogin` option**: New option in `signIn.sigma()` to force OAuth redirect even when session exists
+
 ## 0.0.31
 
 ### Fixed
