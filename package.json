@@ -1,6 +1,6 @@
 {
 	"name": "@sigma-auth/better-auth-plugin",
-	"version": "0.0.39",
+	"version": "0.0.40",
 	"description": "Better Auth plugins for Sigma Identity - client, server, and provider integrations",
 	"type": "module",
 	"main": "./dist/types/index.js",

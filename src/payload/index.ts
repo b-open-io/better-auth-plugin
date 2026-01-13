@@ -12,6 +12,7 @@
  * ```
  */
 
+import type { AuthContext } from "@better-auth/core";
 import {
 	exchangeCodeForTokens,
 	type TokenExchangeError,
@@ -28,18 +29,6 @@ interface NextRequest {
 }
 
 /**
- * Better Auth context with internal adapter for session management
- */
-interface BetterAuthContext {
-	internalAdapter: {
-		createSession: (
-			userId: string,
-			options?: { expiresAt?: Date },
-		) => Promise<{ token: string; expiresAt: Date; userId: string }>;
-	};
-}
-
-/**
  * Payload instance with better-auth (from payload-auth)
  */
 interface PayloadWithBetterAuth {
@@ -53,7 +42,7 @@ interface PayloadWithBetterAuth {
 		data: Record<string, unknown>;
 	}) => Promise<{ id: number | string }>;
 	betterAuth: {
-		$context: Promise<BetterAuthContext>;
+		$context: Promise<AuthContext>;
 	};
 }
 
@@ -334,14 +323,8 @@ export function createPayloadCallbackHandler(config: PayloadCallbackConfig) {
 
 			// Create session using Better Auth's internal adapter
 			// This properly handles all field validations and schema requirements
-			const sessionDuration =
-				config.sessionDuration || 30 * 24 * 60 * 60 * 1000; // 30 days
-			const expiresAt = new Date(Date.now() + sessionDuration);
-
 			const ctx = await payload.betterAuth.$context;
-			const session = await ctx.internalAdapter.createSession(userId, {
-				expiresAt,
-			});
+			const session = await ctx.internalAdapter.createSession(userId);
 
 			const sessionToken = session.token;
 
@@ -357,7 +340,7 @@ export function createPayloadCallbackHandler(config: PayloadCallbackConfig) {
 					secure: process.env.NODE_ENV === "production",
 					sameSite: "lax",
 					path: "/",
-					expires: expiresAt,
+					expires: session.expiresAt,
 				});
 			} catch {
 				// Fallback: set cookie via response header if next/headers not available
