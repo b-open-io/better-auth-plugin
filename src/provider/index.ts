@@ -170,10 +170,6 @@ export const sigmaProvider = (
 						type: "string",
 						required: false,
 					},
-					updatedAt: {
-						type: "date",
-						required: false,
-					},
 				},
 			},
 			oauthClient: {
@@ -195,14 +191,6 @@ export const sigmaProvider = (
 						required: false,
 					},
 					// Note: updatedAt already exists in oauth-provider schema - don't extend
-				},
-			},
-			oauthRefreshToken: {
-				fields: {
-					updatedAt: {
-						type: "date",
-						required: false,
-					},
 				},
 			},
 			// Note: verification table's updatedAt is in Better Auth core schema - don't extend
