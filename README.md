@@ -4,10 +4,27 @@ Better Auth plugins for Sigma Identity - Bitcoin-native authentication with BAP 
 
 ## Installation
 
+### Package
+
 ```bash
 bun add @sigma-auth/better-auth-plugin
 # or
 npm install @sigma-auth/better-auth-plugin
+```
+
+### Claude Code Skills
+
+Works with Claude Code, Cursor, Codex, and other AI coding agents:
+
+```bash
+npx add-skill b-open-io/sigma-auth-better-auth-plugin
+```
+
+Or via Claude Code marketplace:
+
+```bash
+/plugin marketplace add b-open-io/claude-plugins
+/plugin install sigma-auth@b-open-io
 ```
 
 ## Entry Points
