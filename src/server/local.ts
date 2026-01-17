@@ -5,7 +5,29 @@
  * Use these to create consistent API responses and validate access tokens.
  */
 
+import { timingSafeEqual } from "node:crypto";
 import { type AuthToken, parseAuthToken, verifyAuthToken } from "bitcoin-auth";
+
+/**
+ * Constant-time string comparison to prevent timing attacks.
+ * Uses TextEncoder (no Buffer) for byte conversion.
+ */
+function safeCompare(
+	a: string | undefined | null,
+	b: string | undefined | null,
+): boolean {
+	if (!a || !b) return false;
+	if (a.length !== b.length) return false;
+
+	const encoder = new TextEncoder();
+	const aBytes = encoder.encode(a);
+	const bBytes = encoder.encode(b);
+
+	// timingSafeEqual requires equal-length typed arrays
+	if (aBytes.length !== bBytes.length) return false;
+
+	return timingSafeEqual(aBytes, bBytes);
+}
 
 /**
  * Access token validation options
@@ -69,7 +91,7 @@ export async function validateAccessToken(
 	}
 
 	const state = await findState(accessToken);
-	if (!state?.accessToken || state.accessToken !== accessToken) {
+	if (!state?.accessToken || !safeCompare(state.accessToken, accessToken)) {
 		return {
 			valid: false,
 			error: "Invalid access token.",

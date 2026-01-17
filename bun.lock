@@ -5,6 +5,7 @@
     "": {
       "name": "@sigma-auth/better-auth-plugin",
       "dependencies": {
+        "@sigma-auth/better-auth-plugin": "^0.0.46",
         "bitcoin-auth": "^0.0.5",
       },
       "devDependencies": {
@@ -66,6 +67,8 @@
     "@noble/ciphers": ["@noble/ciphers@2.1.1", "", {}, "sha512-bysYuiVfhxNJuldNXlFEitTVdNnYUc+XNJZd7Qm2a5j1vZHgY+fazadNFWFaMK/2vye0JVlxV3gHmC0WDfAOQw=="],
 
     "@noble/hashes": ["@noble/hashes@2.0.1", "", {}, "sha512-XlOlEbQcE9fmuXxrVTXCTlG2nlRXa9Rj3rr5Ue/+tX+nmkgbX720YHh0VR3hBF9xDvwnb8D2shVGOwNx+ulArw=="],
+
+    "@sigma-auth/better-auth-plugin": ["@sigma-auth/better-auth-plugin@0.0.46", "", { "dependencies": { "bitcoin-auth": "^0.0.5" }, "peerDependencies": { "@bsv/sdk": "^1.9.9", "@neondatabase/serverless": "^1.0.2", "better-auth": "^1.4.5", "payload-auth": "^0.6.0", "zod": "^4.1.12" }, "optionalPeers": ["@bsv/sdk", "@neondatabase/serverless", "payload-auth", "zod"] }, "sha512-8P0rnx560W5W/MSXLFsBzxPR5Ca2FkD73jK8/HINPMMSPXByEHED84+Dx4KzoPS5HUUzOKjrTnHxHA8PJl3YZQ=="],
 
     "@standard-schema/spec": ["@standard-schema/spec@1.0.0", "", {}, "sha512-m2bOd0f2RT9k8QJx1JN85cZYyH1RqFBdlwtkSlf4tBDYLCiiZnv1fIIwacK6cqwXavOydf0NPToMQgpKq+dVlA=="],
 

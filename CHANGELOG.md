@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.47
+
+### Security
+- **Timing Attack Fix**: Use constant-time comparison (`timingSafeEqual`) for access token validation in `validateAccessToken()` to prevent timing-based attacks
+
 ## 0.0.46
 
 ### Fixed
