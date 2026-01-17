@@ -234,10 +234,10 @@ export const sigmaProvider = (
 							const tokenRecords = await ctx.context.adapter.findMany<{
 								userId: string;
 								clientId: string;
-								accessToken: string;
+								token: string;
 							}>({
 								model: "oauthAccessToken",
-								where: [{ field: "accessToken", value: accessToken }],
+								where: [{ field: "token", value: accessToken }],
 								limit: 1,
 							});
 
@@ -274,7 +274,7 @@ export const sigmaProvider = (
 							// Update the oauthAccessToken record with the selected BAP ID
 							await ctx.context.adapter.update({
 								model: "oauthAccessToken",
-								where: [{ field: "accessToken", value: accessToken }],
+								where: [{ field: "token", value: accessToken }],
 								update: {
 									selectedBapId,
 								},
