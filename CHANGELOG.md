@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.41
+
+### Fixed
+- **OAuth Token Hook**: Fixed adapter field name mismatch - use `accessToken` instead of `token` to match Better Auth schema
+  - This was preventing `selectedBapId` from being stored in access tokens
+  - Caused userinfo endpoint to return no pubkey for OAuth clients
+
 ## 0.0.32
 
 ### Changed

@@ -231,13 +231,14 @@ export const sigmaProvider = (
 								.access_token;
 
 							// Query the access token record to get userId and clientId using adapter
+							// Note: Better Auth schema uses "accessToken" field name (maps to "token" column)
 							const tokenRecords = await ctx.context.adapter.findMany<{
 								userId: string;
 								clientId: string;
-								token: string;
+								accessToken: string;
 							}>({
 								model: "oauthAccessToken",
-								where: [{ field: "token", value: accessToken }],
+								where: [{ field: "accessToken", value: accessToken }],
 								limit: 1,
 							});
 
@@ -274,7 +275,7 @@ export const sigmaProvider = (
 							// Update the oauthAccessToken record with the selected BAP ID
 							await ctx.context.adapter.update({
 								model: "oauthAccessToken",
-								where: [{ field: "token", value: accessToken }],
+								where: [{ field: "accessToken", value: accessToken }],
 								update: {
 									selectedBapId,
 								},
