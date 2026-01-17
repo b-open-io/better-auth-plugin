@@ -1,6 +1,6 @@
 {
   "name": "sigma-auth",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Sigma Auth - Bitcoin-native OAuth with Better Auth, BAP identity, and comprehensive authentication patterns",
   "author": {
     "name": "b-open-io",
