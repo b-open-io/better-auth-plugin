@@ -15,7 +15,7 @@ export interface ValidateAccessTokenOptions {
 	accessToken: string;
 	/** Function to look up token state from database */
 	findState: (accessToken: string) => Promise<{
-		accessToken: string;
+		accessToken?: string;
 		expireTime?: number;
 		host?: string;
 		scopes?: string[];

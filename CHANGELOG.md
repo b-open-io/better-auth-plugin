@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.43
+
+### Fixed
+- **Local Server Helpers**: Make `findState` return type allow optional `accessToken` for database record compatibility
+
 ## 0.0.42
 
 ### Added
