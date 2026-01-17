@@ -61,10 +61,7 @@ const getSigmaUrl = (): string => {
  * Get the local server URL from environment or default
  */
 const getLocalServerUrl = (): string => {
-	if (
-		typeof process !== "undefined" &&
-		process.env.NEXT_PUBLIC_TOKENPASS_URL
-	) {
+	if (typeof process !== "undefined" && process.env.NEXT_PUBLIC_TOKENPASS_URL) {
 		return process.env.NEXT_PUBLIC_TOKENPASS_URL;
 	}
 	return "http://localhost:21000";

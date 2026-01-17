@@ -5,7 +5,7 @@
  * Use these to create consistent API responses and validate access tokens.
  */
 
-import { verifyAuthToken, parseAuthToken, type AuthToken } from "bitcoin-auth";
+import { type AuthToken, parseAuthToken, verifyAuthToken } from "bitcoin-auth";
 
 /**
  * Access token validation options
@@ -78,7 +78,11 @@ export async function validateAccessToken(
 	}
 
 	// Check expiration (0 means never expires)
-	if (state.expireTime && state.expireTime !== 0 && state.expireTime < Date.now()) {
+	if (
+		state.expireTime &&
+		state.expireTime !== 0 &&
+		state.expireTime < Date.now()
+	) {
 		return {
 			valid: false,
 			error: "Access token has expired.",
@@ -88,8 +92,8 @@ export async function validateAccessToken(
 
 	// Check required scopes
 	if (requiredScopes?.length) {
-		const hasAllScopes = requiredScopes.every(
-			(scope) => state.scopes?.includes(scope),
+		const hasAllScopes = requiredScopes.every((scope) =>
+			state.scopes?.includes(scope),
 		);
 		if (!hasAllScopes) {
 			return {

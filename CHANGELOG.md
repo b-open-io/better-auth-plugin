@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.0.42
+
+### Added
+- **LocalServerSigner**: New client class (`./client/local`) for communicating with local sigma-auth servers
+- **Local Server Helpers**: New utilities (`./server/local`) for building sigma-auth server endpoints
+  - `validateAccessToken()` - Reusable access token validation
+  - `extractAccessToken()` - Extract Bearer token from Authorization header
+  - `createErrorResponse()` - Standard error response format
+  - Response type interfaces for sign, encrypt, decrypt, AIP operations
+- **Server Detection**: `sigmaClient` now supports `preferLocal` option to auto-detect local servers
+
 ## 0.0.41
 
 ### Fixed
