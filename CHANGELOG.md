@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.0.45
+
+### Fixed
+- **Token Hook**: Fix access token query/update to use correct database column name
+  - Database column is `token`, not `accessToken`
+  - Changed `field: "accessToken"` to `field: "token"` for both query and update
+  - This was preventing `selectedBapId` from being copied from consent to access token
+
 ## 0.0.44
 
 ### Fixed

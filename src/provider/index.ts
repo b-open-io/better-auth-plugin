@@ -226,19 +226,19 @@ export const sigmaProvider = (
 						}
 
 						try {
-							// Get the access token from response to find the related consent
+							// Get the access token from response
 							const accessToken = (responseBody as { access_token: string })
 								.access_token;
 
-							// Query the access token record to get userId and clientId using adapter
-							// Note: Better Auth schema uses "accessToken" field name (maps to "token" column)
+							// Query the access token record to get userId and clientId
+							// Note: database column is "token", not "accessToken"
 							const tokenRecords = await ctx.context.adapter.findMany<{
 								userId: string;
 								clientId: string;
-								accessToken: string;
+								token: string;
 							}>({
 								model: "oauthAccessToken",
-								where: [{ field: "accessToken", value: accessToken }],
+								where: [{ field: "token", value: accessToken }],
 								limit: 1,
 							});
 
@@ -273,9 +273,10 @@ export const sigmaProvider = (
 							const selectedBapId = consentRecord.selectedBapId;
 
 							// Update the oauthAccessToken record with the selected BAP ID
+							// Note: database column is "token", not "accessToken"
 							await ctx.context.adapter.update({
 								model: "oauthAccessToken",
-								where: [{ field: "accessToken", value: accessToken }],
+								where: [{ field: "token", value: accessToken }],
 								update: {
 									selectedBapId,
 								},
