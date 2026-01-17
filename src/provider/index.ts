@@ -352,17 +352,18 @@ export const sigmaProvider = (
 							// Wait a bit for Better Auth to create the consent record
 							await new Promise((resolve) => setTimeout(resolve, 100));
 
-							// Query the database to get the clientId from the consent record
+							// Query the database to get the most recently updated consent record
+							// Use updatedAt (not createdAt) because existing consents get updated, not recreated
 							const consentRecords = await ctx.context.adapter.findMany<{
 								id: string;
 								clientId: string;
 								userId: string;
-								createdAt: Date;
+								updatedAt: Date;
 							}>({
 								model: "oauthConsent",
 								where: [{ field: "userId", value: session.user.id }],
 								limit: 1,
-								sortBy: { field: "createdAt", direction: "desc" },
+								sortBy: { field: "updatedAt", direction: "desc" },
 							});
 
 							const consentRecord = consentRecords[0];

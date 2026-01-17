@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.0.44
+
+### Fixed
+- **Consent Hook**: Fix consent record lookup to use `updatedAt` instead of `createdAt`
+  - When a user has consented to multiple OAuth clients, the hook was grabbing the wrong consent record
+  - Existing consents get updated (not recreated), so `createdAt` stays old while `updatedAt` reflects the current operation
+  - This was causing `selectedBapId` to be stored on the wrong consent, leaving the actual consent with NULL
+
 ## 0.0.43
 
 ### Fixed
