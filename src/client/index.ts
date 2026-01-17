@@ -9,6 +9,11 @@ import type {
 	SubscriptionStatus,
 	SubscriptionTier,
 } from "../types/index.js";
+import {
+	LocalServerSigner,
+	type LocalServerSignerOptions,
+	type SigmaSigner,
+} from "./local-signer.js";
 import { SigmaIframeSigner } from "./signer.js";
 
 // Re-export types for convenience
@@ -27,8 +32,13 @@ export type {
 	WalletNFTs,
 } from "../types/index.js";
 
+// Re-export signer types and classes
+export { LocalServerSigner, type SigmaSigner } from "./local-signer.js";
+export { SigmaIframeSigner } from "./signer.js";
+
 // Module-level state for signer (singleton per page)
-let signer: SigmaIframeSigner | null = null;
+let signer: SigmaSigner | null = null;
+let signerType: "local" | "iframe" | null = null;
 let storedBapId: string | null = null;
 
 // Storage key for persisting bapId
@@ -48,14 +58,67 @@ const getSigmaUrl = (): string => {
 };
 
 /**
- * Initialize or get the signer instance (lazy singleton)
+ * Get the local server URL from environment or default
  */
-const getOrCreateSigner = async (): Promise<SigmaIframeSigner> => {
-	if (!signer) {
-		signer = new SigmaIframeSigner(getSigmaUrl());
+const getLocalServerUrl = (): string => {
+	if (
+		typeof process !== "undefined" &&
+		process.env.NEXT_PUBLIC_TOKENPASS_URL
+	) {
+		return process.env.NEXT_PUBLIC_TOKENPASS_URL;
 	}
-	if (!signer.isReady()) {
-		await signer.init();
+	return "http://localhost:21000";
+};
+
+// Module-level options for server detection
+let preferLocalServer = false;
+let localServerOptions: LocalServerSignerOptions = {};
+let serverDetectedCallback:
+	| ((url: string, isLocal: boolean) => void)
+	| undefined;
+
+/**
+ * Initialize or get the signer instance (lazy singleton)
+ * Will prefer local server if configured and available
+ */
+const getOrCreateSigner = async (): Promise<SigmaSigner> => {
+	if (signer?.isReady()) {
+		return signer;
+	}
+
+	// If we prefer local and haven't tried yet, check for local server
+	if (preferLocalServer && signerType !== "iframe") {
+		const localSigner = new LocalServerSigner({
+			baseUrl: localServerOptions.baseUrl || getLocalServerUrl(),
+			timeout: localServerOptions.timeout,
+		});
+
+		if (await localSigner.probe()) {
+			// Local server is available
+			signer = localSigner;
+			signerType = "local";
+			serverDetectedCallback?.(localSigner.getBaseUrl(), true);
+
+			// Try to authenticate with current host
+			const host =
+				typeof window !== "undefined" ? window.location.host : "localhost";
+			await localSigner.authenticate(host);
+
+			return signer;
+		}
+	}
+
+	// Fall back to iframe signer (cloud)
+	if (!signer || signerType !== "iframe") {
+		const iframeSigner = new SigmaIframeSigner(getSigmaUrl());
+		signer = iframeSigner;
+		signerType = "iframe";
+		serverDetectedCallback?.(getSigmaUrl(), false);
+	}
+
+	const iframeSigner = signer as SigmaIframeSigner;
+	if (!iframeSigner.isReady()) {
+		await iframeSigner.init();
 	}
 	return signer;
 };
@@ -129,6 +192,37 @@ const generateCodeChallenge = async (verifier: string) => {
 };
 
 /**
+ * Options for the Sigma client plugin
+ */
+export interface SigmaClientOptions {
+	/**
+	 * Prefer local TokenPass server over cloud iframe signer.
+	 * If true, the client will probe for a local server first
+	 * and only fall back to cloud if unavailable.
+	 * Default: false
+	 */
+	preferLocal?: boolean;
+
+	/**
+	 * Local server URL (default: http://localhost:21000)
+	 * Can also be set via NEXT_PUBLIC_TOKENPASS_URL env var
+	 */
+	localServerUrl?: string;
+
+	/**
+	 * Timeout for local server requests in milliseconds (default: 5000)
+	 */
+	localServerTimeout?: number;
+
+	/**
+	 * Callback when server type is detected
+	 * @param url - The server URL being used
+	 * @param isLocal - True if using local server, false if cloud
+	 */
+	onServerDetected?: (url: string, isLocal: boolean) => void;
+}
+
+/**
  * Sigma Auth client plugin for Better Auth
  * Provides browser-side OAuth flow with PKCE
  *
@@ -161,7 +255,7 @@ const generateCodeChallenge = async (verifier: string) => {
  *
  * export const authClient = createAuthClient({
  *   baseURL: "https://auth.sigmaidentity.com",
- *   plugins: [sigmaClient()],
+ *   plugins: [sigmaClient({ preferLocal: true })],
  * });
  *
  * // Sign in with Sigma
@@ -171,7 +265,14 @@ const generateCodeChallenge = async (verifier: string) => {
  * });
  * ```
  */
-export const sigmaClient = () => {
+export const sigmaClient = (options: SigmaClientOptions = {}) => {
+	// Configure module-level options for signer detection
+	preferLocalServer = options.preferLocal ?? false;
+	localServerOptions = {
+		baseUrl: options.localServerUrl,
+		timeout: options.localServerTimeout,
+	};
+	serverDetectedCallback = options.onServerDetected;
 	return {
 		id: "sigma",
 
@@ -861,7 +962,44 @@ export const sigmaClient = () => {
 						if (signer) {
 							signer.destroy();
 							signer = null;
+							signerType = null;
 						}
+					},
+
+					/**
+					 * Detect which server to use (local vs cloud)
+					 * Call this to explicitly probe for local server
+					 * @returns Promise resolving to { url: string, isLocal: boolean }
+					 */
+					detectServer: async (): Promise<{
+						url: string;
+						isLocal: boolean;
+					}> => {
+						const localSigner = new LocalServerSigner({
+							baseUrl: localServerOptions.baseUrl || getLocalServerUrl(),
+							timeout: localServerOptions.timeout,
+						});
+
+						if (await localSigner.probe()) {
+							return { url: localSigner.getBaseUrl(), isLocal: true };
+						}
+						return { url: getSigmaUrl(), isLocal: false };
+					},
+
+					/**
+					 * Get the current signer type being used
+					 * @returns 'local' | 'iframe' | null
+					 */
+					getSignerType: (): "local" | "iframe" | null => {
+						return signerType;
+					},
+
+					/**
+					 * Get the underlying signer instance
+					 * Useful for advanced usage
+					 */
+					getSigner: async (): Promise<SigmaSigner> => {
+						return getOrCreateSigner();
 					},
 
 					/**
