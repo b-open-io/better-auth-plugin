@@ -1,3 +1,5 @@
+import { base64Url } from "@better-auth/utils/base64";
+import { createHash } from "@better-auth/utils/hash";
 import { PublicKey } from "@bsv/sdk";
 import type { Pool } from "@neondatabase/serverless";
 import type { BetterAuthPlugin, User } from "better-auth";
@@ -10,6 +12,16 @@ import { setSessionCookie } from "better-auth/cookies";
 import { createAuthMiddleware } from "better-auth/plugins";
 import { parseAuthToken, verifyAuthToken } from "bitcoin-auth";
 import { z } from "zod";
+
+/**
+ * Hash a token using SHA-256, matching oauth-provider's storeTokens: "hashed" behavior
+ */
+const hashToken = async (token: string): Promise<string> => {
+	const hash = await createHash("SHA-256").digest(
+		new TextEncoder().encode(token),
+	);
+	return base64Url.encode(new Uint8Array(hash), { padding: false });
+};
 
 /**
  * Debug logger that only logs when debug mode is enabled
@@ -230,6 +242,10 @@ export const sigmaProvider = (
 							const accessToken = (responseBody as { access_token: string })
 								.access_token;
 
+							// Hash the token to match what's stored in the database
+							// (oauth-provider uses storeTokens: "hashed" by default)
+							const hashedToken = await hashToken(accessToken);
+
 							// Query the access token record to get userId and clientId using adapter
 							const tokenRecords = await ctx.context.adapter.findMany<{
 								userId: string;
@@ -237,7 +253,7 @@ export const sigmaProvider = (
 								token: string;
 							}>({
 								model: "oauthAccessToken",
-								where: [{ field: "token", value: accessToken }],
+								where: [{ field: "token", value: hashedToken }],
 								limit: 1,
 							});
 
@@ -274,7 +290,7 @@ export const sigmaProvider = (
 							// Update the oauthAccessToken record with the selected BAP ID
 							await ctx.context.adapter.update({
 								model: "oauthAccessToken",
-								where: [{ field: "token", value: accessToken }],
+								where: [{ field: "token", value: hashedToken }],
 								update: {
 									selectedBapId,
 								},

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.0.49
+
+### Fixed
+- **OAuth Token Hook**: Hash access token before database lookup to match oauth-provider's `storeTokens: "hashed"` behavior
+  - The AFTER hook on `/oauth2/token` was querying by raw token but oauth-provider stores tokens hashed
+  - Now uses `@better-auth/utils/hash` and `@better-auth/utils/base64` for compatible SHA-256 + base64url hashing
+  - This fixes `selectedBapId` not being stored, causing userinfo to return no `pubkey`
+
 ## 0.0.47
 
 ### Security
