@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.0.46
+
+### Fixed
+- Reverted 0.0.45 changes - the correct fix is renaming the database column to `accessToken`, not changing the code
+
+## 0.0.45 (BAD RELEASE - DO NOT USE)
+
+### Broken
+- Incorrectly changed adapter field to `token` - this breaks Better Auth schema expectations
+- Use 0.0.46+ instead
+
 ## 0.0.44
 
 ### Fixed
