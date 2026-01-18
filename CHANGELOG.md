@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.0.50
+
+### Added
+- **Sync Client**: New `./client/sync` export for backup synchronization with sigma-auth cloud storage
+  - `pushBackup()` - Push encrypted backup to cloud storage
+  - `pullBackup()` - Pull encrypted backup from cloud storage
+  - `checkBackupStatus()` - Check if cloud backup exists and get timestamp
+  - Uses bitcoin-auth tokens signed by BAP member key for authentication
+
 ## 0.0.49
 
 ### Fixed
