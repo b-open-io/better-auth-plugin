@@ -1,5 +1,7 @@
 import type { BetterFetchOption } from "@better-fetch/fetch";
 import type { BetterAuthClientPlugin } from "better-auth/client";
+// Import organizationClient from dedicated path for tree-shaking (per Better Auth best practices)
+import { organizationClient } from "better-auth/client/plugins";
 import type {
 	ConnectedWallet,
 	NFTListResponse,
@@ -35,6 +37,10 @@ export type {
 // Re-export signer types and classes
 export { LocalServerSigner, type SigmaSigner } from "./local-signer.js";
 export { SigmaIframeSigner } from "./signer.js";
+
+// Re-export organizationClient for consumers using BAP identities as organizations
+// Usage: createAuthClient({ plugins: [sigmaClient(), organizationClient()] })
+export { organizationClient };
 
 // Module-level state for signer (singleton per page)
 let signer: SigmaSigner | null = null;

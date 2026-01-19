@@ -10,6 +10,11 @@ import {
 } from "better-auth/api";
 import { setSessionCookie } from "better-auth/cookies";
 import { createAuthMiddleware } from "better-auth/plugins";
+// Import organization from dedicated path for tree-shaking (per Better Auth best practices)
+import {
+	type OrganizationOptions,
+	organization,
+} from "better-auth/plugins/organization";
 import { parseAuthToken, verifyAuthToken } from "bitcoin-auth";
 import { z } from "zod";
 
@@ -116,6 +121,56 @@ export interface SigmaProviderOptions {
 }
 
 /**
+ * Options for customizing the BAP identity organization config
+ */
+export interface BapOrganizationOptions {
+	/**
+	 * Additional options to merge with the base organization config
+	 */
+	additionalOptions?: Partial<OrganizationOptions>;
+}
+
+/**
+ * Create the organization plugin configured for BAP identities
+ *
+ * BAP identities are personal - each organization has exactly one owner (the user).
+ * This config disables invitations and multi-member organizations.
+ *
+ * @example
+ * ```typescript
+ * import { betterAuth } from "better-auth";
+ * import { sigmaProvider, createBapOrganization } from "@sigma-auth/better-auth-plugin/provider";
+ *
+ * export const auth = betterAuth({
+ *   plugins: [
+ *     sigmaProvider({ ... }),
+ *     createBapOrganization(),
+ *   ],
+ * });
+ * ```
+ */
+export const createBapOrganization = (options?: BapOrganizationOptions) => {
+	return organization({
+		// BAP IDs are personal identities - disable invitations
+		sendInvitationEmail: async () => {
+			throw new Error("Invitations not supported for BAP identities");
+		},
+		// Users can create organizations (BAP identities)
+		allowUserToCreateOrganization: true,
+		// Creator is always the owner
+		creatorRole: "owner",
+		// Single member per organization
+		membershipLimit: 1,
+		// Merge any additional options
+		...options?.additionalOptions,
+	});
+};
+
+// Re-export for convenience
+export { organization };
+export type { OrganizationOptions };
+
+/**
  * Sigma Auth provider plugin for Better Auth
  * This is the OAuth provider that runs on auth.sigmaidentity.com
  *
@@ -176,14 +231,8 @@ export const sigmaProvider = (
 						: {}),
 				},
 			},
-			oauthAccessToken: {
-				fields: {
-					selectedBapId: {
-						type: "string",
-						required: false,
-					},
-				},
-			},
+			// Note: selectedBapId removed - use referenceId from oauth-provider instead
+			// referenceId is set via postLogin.consentReferenceId callback
 			oauthClient: {
 				fields: {
 					ownerBapId: {
@@ -196,15 +245,7 @@ export const sigmaProvider = (
 					},
 				},
 			},
-			oauthConsent: {
-				fields: {
-					selectedBapId: {
-						type: "string",
-						required: false,
-					},
-					// Note: updatedAt already exists in oauth-provider schema - don't extend
-				},
-			},
+			// Note: oauthConsent selectedBapId removed - use referenceId from oauth-provider instead
 			// Note: verification table's updatedAt is in Better Auth core schema - don't extend
 		},
 
@@ -229,16 +270,16 @@ export const sigmaProvider = (
 							typeof responseBody !== "object" ||
 							!("access_token" in responseBody)
 						) {
-							return; // Token exchange failed, skip BAP ID storage
+							return; // Token exchange failed, skip profile update
 						}
 
-						// Only proceed if we have cache option
-						if (!options?.cache) {
+						// Only proceed if we have getPool for profile lookup
+						if (!options?.getPool) {
 							return;
 						}
 
 						try {
-							// Get the access token from response to find the related consent
+							// Get the access token from response to find the token record
 							const accessToken = (responseBody as { access_token: string })
 								.access_token;
 
@@ -246,11 +287,14 @@ export const sigmaProvider = (
 							// (oauth-provider uses storeTokens: "hashed" by default)
 							const hashedToken = await hashToken(accessToken);
 
-							// Query the access token record to get userId and clientId using adapter
+							// Query the access token record to get userId and referenceId
+							// referenceId is set by Better Auth via postLogin.consentReferenceId
+							// and contains the BAP ID (activeOrganizationId)
 							const tokenRecords = await ctx.context.adapter.findMany<{
 								userId: string;
 								clientId: string;
 								token: string;
+								referenceId: string | null;
 							}>({
 								model: "oauthAccessToken",
 								where: [{ field: "token", value: hashedToken }],
@@ -262,158 +306,61 @@ export const sigmaProvider = (
 								return;
 							}
 
-							const { userId, clientId } = tokenRecords[0];
+							const { userId, referenceId } = tokenRecords[0];
 
-							// Query the most recent consent record for this user/client to get selectedBapId
-							const consentRecords = await ctx.context.adapter.findMany<{
-								selectedBapId: string;
-								userId: string;
-								clientId: string;
-								createdAt: Date;
-							}>({
-								model: "oauthConsent",
-								where: [
-									{ field: "userId", value: userId },
-									{ field: "clientId", value: clientId },
-								],
-								limit: 1,
-								sortBy: { field: "createdAt", direction: "desc" },
-							});
-
-							const consentRecord = consentRecords[0];
-							if (!consentRecord || !consentRecord.selectedBapId) {
+							// referenceId is the BAP ID (set via postLogin.consentReferenceId from activeOrganizationId)
+							if (!referenceId) {
+								debug.log(
+									"No referenceId (BAP ID) in token, skipping profile update",
+								);
 								return;
 							}
 
-							const selectedBapId = consentRecord.selectedBapId;
-
-							// Update the oauthAccessToken record with the selected BAP ID
-							await ctx.context.adapter.update({
-								model: "oauthAccessToken",
-								where: [{ field: "token", value: hashedToken }],
-								update: {
-									selectedBapId,
-								},
-							});
-
 							debug.log(
-								`Stored BAP ID in access token: user=${userId.substring(0, 15)}... bap=${selectedBapId.substring(0, 15)}...`,
+								`Found BAP ID in token referenceId: user=${userId.substring(0, 15)}... bap=${referenceId.substring(0, 15)}...`,
 							);
 
 							// Update user record with selected identity's profile data
-							if (options?.getPool) {
-								const pool = options.getPool();
-								// Use pool.query() directly to avoid connect/release pattern
-								// This prevents "Pool release event triggered outside of request scope" warning
-								const profileResult = await pool.query<{
-									bap_id: string;
-									name: string;
-									image: string | null;
-									member_pubkey: string | null;
-								}>(
-									"SELECT bap_id, name, image, member_pubkey FROM profile WHERE bap_id = $1 AND user_id = $2 LIMIT 1",
-									[selectedBapId, userId],
-								);
+							const pool = options.getPool();
+							// Use pool.query() directly to avoid connect/release pattern
+							// This prevents "Pool release event triggered outside of request scope" warning
+							const profileResult = await pool.query<{
+								bap_id: string;
+								name: string;
+								image: string | null;
+								member_pubkey: string | null;
+							}>(
+								"SELECT bap_id, name, image, member_pubkey FROM profile WHERE bap_id = $1 AND user_id = $2 LIMIT 1",
+								[referenceId, userId],
+							);
 
-								const profile = profileResult.rows[0];
-								if (profile) {
-									// Update user record with profile data
-									await ctx.context.adapter.update({
-										model: "user",
-										where: [{ field: "id", value: userId }],
-										update: {
-											name: profile.name,
-											image: profile.image,
-											...(profile.member_pubkey && {
-												pubkey: profile.member_pubkey,
-											}),
-											updatedAt: new Date(),
-										},
-									});
-								}
+							const profile = profileResult.rows[0];
+							if (profile) {
+								// Update user record with profile data
+								await ctx.context.adapter.update({
+									model: "user",
+									where: [{ field: "id", value: userId }],
+									update: {
+										name: profile.name,
+										image: profile.image,
+										...(profile.member_pubkey && {
+											pubkey: profile.member_pubkey,
+										}),
+										updatedAt: new Date(),
+									},
+								});
+								debug.log(`Updated user profile from BAP identity`);
 							}
 						} catch (error) {
-							debug.error("Error storing identity selection:", error);
+							debug.error("Error updating user profile from identity:", error);
 						}
 					}),
 				},
-				// NOTE: Userinfo enrichment is handled by getAdditionalUserInfoClaim in auth server config
-				// This avoids duplicate database queries and pool release warnings
-				// The auth server's getAdditionalUserInfoClaim looks up selectedBapId and fetches BAP profile
-				{
-					matcher: (ctx) => ctx.path === "/oauth2/consent",
-					handler: createAuthMiddleware(async (ctx) => {
-						// Only proceed if we have cache option
-						if (!options?.cache) {
-							return;
-						}
-
-						const body = ctx.body as Record<string, unknown>;
-						const consentCode = body.consent_code as string;
-						const accept = body.accept as boolean;
-
-						// Only store selectedBapId if consent was accepted
-						if (!accept || !consentCode) {
-							return;
-						}
-
-						try {
-							// Get session for userId
-							const session = ctx.context.session;
-							if (!session?.user?.id) {
-								return;
-							}
-
-							// Wait a bit for Better Auth to create the consent record
-							await new Promise((resolve) => setTimeout(resolve, 100));
-
-							// Query the database to get the most recently updated consent record
-							// Use updatedAt (not createdAt) because existing consents get updated, not recreated
-							const consentRecords = await ctx.context.adapter.findMany<{
-								id: string;
-								clientId: string;
-								userId: string;
-								updatedAt: Date;
-							}>({
-								model: "oauthConsent",
-								where: [{ field: "userId", value: session.user.id }],
-								limit: 1,
-								sortBy: { field: "updatedAt", direction: "desc" },
-							});
-
-							const consentRecord = consentRecords[0];
-							if (!consentRecord) {
-								return;
-							}
-
-							const { id: consentId } = consentRecord;
-
-							// Retrieve selected BAP ID from cache/KV
-							const selectedBapId = await options.cache.get<string>(
-								`consent:${consentCode}:bap_id`,
-							);
-
-							if (!selectedBapId) {
-								return;
-							}
-
-							// Update the consent record with selectedBapId using adapter
-							await ctx.context.adapter.update({
-								model: "oauthConsent",
-								where: [{ field: "id", value: consentId }],
-								update: {
-									selectedBapId,
-								},
-							});
-
-							debug.log(
-								`Stored BAP ID in consent: user=${session.user.id.substring(0, 15)}... bap=${selectedBapId.substring(0, 15)}...`,
-							);
-						} catch (error) {
-							debug.error("Error storing consent identity selection:", error);
-						}
-					}),
-				},
+				// NOTE: /oauth2/consent hook removed - BAP ID selection now uses:
+				// 1. organization.setActive({ organizationId: bapId }) - sets session.activeOrganizationId
+				// 2. oauth2Continue({ postLogin: true }) - triggers token issuance
+				// 3. postLogin.consentReferenceId returns activeOrganizationId
+				// 4. Better Auth stores it in oauthAccessToken.referenceId automatically
 			],
 			before: [
 				{
@@ -660,6 +607,12 @@ export const sigmaProvider = (
 		endpoints: {
 			/**
 			 * Store selected BAP ID for OAuth consent
+			 *
+			 * @deprecated Use organization.setActive({ organizationId: bapId }) followed by
+			 * oauth2Continue({ postLogin: true }) instead. The BAP ID is now stored via
+			 * postLogin.consentReferenceId which reads from session.activeOrganizationId.
+			 *
+			 * This endpoint is kept for backwards compatibility during migration.
 			 */
 			storeConsentBapId: createAuthEndpoint(
 				"/sigma/store-consent-bap-id",
@@ -688,6 +641,11 @@ export const sigmaProvider = (
 						// Store in KV with 5 minute TTL
 						const kvKey = `consent:${consentCode}:bap_id`;
 						await options.cache.set(kvKey, bapId, { ex: 300 });
+
+						debug.warn(
+							"DEPRECATED: storeConsentBapId endpoint called. " +
+								"Use organization.setActive() + oauth2Continue({ postLogin: true }) instead.",
+						);
 
 						return ctx.json({ success: true });
 					} catch (error) {

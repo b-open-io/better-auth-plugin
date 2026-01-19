@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.0.52
+
+### Breaking Changes
+- **Removed selectedBapId schema**: The `selectedBapId` field has been removed from `oauthAccessToken` and `oauthConsent` schemas. Use Better Auth's built-in `referenceId` field instead (set via `postLogin.consentReferenceId`).
+- **Consent flow change**: The `/oauth2/consent` hook has been removed. BAP ID selection now uses:
+  1. `organization.setActive({ organizationId: bapId })` to set `session.activeOrganizationId`
+  2. `oauth2Continue({ postLogin: true })` to continue the OAuth flow
+  3. `postLogin.consentReferenceId` returns the active organization ID
+  4. Better Auth stores it in `oauthAccessToken.referenceId` automatically
+
+### Added
+- **Organization plugin helper**: New `createBapOrganization()` function that returns a pre-configured organization plugin for BAP identities:
+  - Disables invitations (BAP IDs are personal)
+  - Sets membership limit to 1 (single owner)
+  - Creator is always the owner
+- **Organization client export**: Re-exports `organizationClient` from Better Auth for consumer convenience
+- **Organization types**: Re-exports `OrganizationOptions` type for TypeScript consumers
+
+### Changed
+- **Token hook updated**: The `/oauth2/token` AFTER hook now reads BAP ID from `referenceId` instead of querying `selectedBapId` from consent records
+- **Tree-shaking imports**: Organization plugin imported from dedicated path per Better Auth best practices
+
+### Deprecated
+- **storeConsentBapId endpoint**: Marked as deprecated but kept for backwards compatibility. Use `organization.setActive()` + `oauth2Continue({ postLogin: true })` instead.
+
+### Migration Guide
+1. Add `createBapOrganization()` to your auth plugins
+2. Configure `postLogin.consentReferenceId` in your oauth-provider config to return `session.activeOrganizationId`
+3. Update consent UI to use `organization.setActive()` instead of calling `/sigma/store-consent-bap-id`
+4. Run data migration to copy existing `selectedBapId` values to `referenceId`
+
 ## 0.0.51
 
 ### Changed
