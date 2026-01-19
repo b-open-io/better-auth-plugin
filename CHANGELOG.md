@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.0.51
+
+### Changed
+- **Standard OIDC Scopes**: Removed custom `bsv:tools` scope from OAuth requests - now uses standard OIDC scopes only (`openid profile`)
+  - BSV/BAP claims are included in the `profile` scope response, no custom scopes needed
+  - Fixes "invalid scope" errors when authenticating against servers without custom BSV scopes configured
+
+### Documentation
+- Updated all documentation to reference standard OIDC scopes instead of custom BSV scopes
+- Clarified that BAP claims are part of the `profile` scope
+
 ## 0.0.50
 
 ### Added

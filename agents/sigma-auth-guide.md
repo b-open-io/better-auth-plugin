@@ -353,21 +353,43 @@ fetch('/api/data', {
 ```
 
 ### OAuth Provider Plugin
+
+**IMPORTANT**: The `oauthProvider` plugin is SEPARATE from `sigmaProvider`. If you're building an OAuth server (like TokenPass), you need BOTH plugins.
+
 ```typescript
 import { oauthProvider } from "@better-auth/oauth-provider";
+import { sigmaProvider } from "@sigma-auth/better-auth-plugin/provider";
 
 auth({
   plugins: [
-    jwt(),
+    // Sigma plugin - adds pubkey field and Bitcoin/BAP authentication
+    sigmaProvider({
+      debug: process.env.NODE_ENV === "development",
+    }),
+
+    // OAuth Provider - enables your app as an OAuth 2.1 server
+    // Must include BSV scopes for wallet/identity operations
     oauthProvider({
-      loginPage: "/sign-in",
+      loginPage: "/auth",
       consentPage: "/consent",
       allowDynamicClientRegistration: true,
-      scopes: ["openid", "profile", "email", "offline_access"]
-    })
+      defaultScope: "openid profile",
+      scopes: [
+        "openid",          // OIDC ID token
+        "profile",         // User profile + BSV pubkey/BAP claims
+        "email",           // Email access
+        "offline_access",  // Refresh tokens
+      ],
+    }),
   ]
 });
 ```
+
+**Key Points**:
+- Install `@better-auth/oauth-provider` separately: `bun add @better-auth/oauth-provider`
+- Uses standard OIDC scopes - BSV/BAP claims are included in `profile` scope
+- `sigmaProvider` handles Bitcoin authentication; `oauthProvider` handles OAuth server functionality
+- Without `oauthProvider`, your server can't issue OAuth tokens to clients
 
 Note: The `oauthProvider` plugin replaces the deprecated `oidcProvider`. Key differences:
 - Import from `@better-auth/oauth-provider` (separate package)

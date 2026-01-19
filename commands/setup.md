@@ -162,11 +162,89 @@ export const POST = createPayloadCallbackHandler({
 5. Exchange code for tokens (server-side)
 6. Store user data locally (cross-domain cookies don't work)
 
+## OAuth Provider Setup (Running Your Own Auth Server)
+
+If you're building an OAuth **provider** (like auth.sigmaidentity.com or TokenPass), you need BOTH `sigmaProvider` AND `oauthProvider` plugins.
+
+### 1. Install Dependencies
+
+```bash
+bun add @sigma-auth/better-auth-plugin @better-auth/oauth-provider better-auth postgres
+```
+
+### 2. Server Auth Configuration (`lib/auth.ts`)
+
+```typescript
+import { oauthProvider } from "@better-auth/oauth-provider";
+import { sigmaProvider } from "@sigma-auth/better-auth-plugin/provider";
+import { betterAuth } from "better-auth";
+import { nextCookies } from "better-auth/next-js";
+
+export const auth = betterAuth({
+  database: getDatabase(), // Your database connection
+  secret: process.env.BETTER_AUTH_SECRET,
+  baseURL: "http://localhost:21000", // Your server URL
+
+  plugins: [
+    // Sigma plugin - adds pubkey field and Bitcoin/BAP authentication
+    sigmaProvider({
+      debug: process.env.NODE_ENV === "development",
+    }),
+
+    // OAuth Provider - enables your app as an OAuth 2.1 server
+    oauthProvider({
+      loginPage: "/auth",
+      consentPage: "/consent",
+      allowDynamicClientRegistration: true,
+      defaultScope: "openid profile",
+      scopes: [
+        "openid",          // OIDC ID token
+        "profile",         // User profile + BSV pubkey/BAP claims
+        "email",           // Email access
+        "offline_access",  // Refresh tokens
+      ],
+    }),
+
+    nextCookies(),
+  ],
+
+  session: {
+    storeSessionInDatabase: true,
+  },
+
+  // Allow clients from different ports during development
+  trustedOrigins: [
+    "http://localhost:21000",
+    "http://localhost:4200",
+    "http://localhost:3000",
+  ],
+});
+```
+
+### 3. API Route (`app/api/auth/[...all]/route.ts`)
+
+```typescript
+import { auth } from "@/lib/auth";
+import { toNextJsHandler } from "better-auth/next-js";
+
+export const { GET, POST } = toNextJsHandler(auth.handler);
+```
+
+### Common Mistake: Missing oauthProvider
+
+If you see this error:
+```
+The following scopes are invalid: openid, profile
+```
+
+It means you're missing the `oauthProvider` plugin. The `oauthProvider` is required to handle OAuth flows and scope validation.
+
 ## Key Concepts
 
 - **Cross-Domain**: Better Auth's `useSession` only works same-domain. Manage state with tokens.
 - **PKCE**: Automatically handled by the client plugin
 - **BAP Identity**: Available in `result.user.bap` after authentication
+- **Provider vs Client**: `sigmaProvider` = run your own auth server; `sigmaClient` = authenticate against Sigma Identity
 
 ## Reference
 

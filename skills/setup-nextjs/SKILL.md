@@ -191,6 +191,16 @@ export const POST = createCallbackHandler();
 
 **PKCE**: The client plugin automatically handles PKCE (Proof Key for Code Exchange) for secure OAuth flows.
 
+## Running Your Own OAuth Provider
+
+If you're building an OAuth **provider** (not client), see the OAuth Provider section in `/sigma-auth:setup`. You'll need:
+
+1. `@better-auth/oauth-provider` package
+2. Both `sigmaProvider` AND `oauthProvider` plugins
+3. Standard OIDC scopes: `openid`, `profile`, `email`, `offline_access`
+
+BSV/BAP claims are automatically included in the `profile` scope response.
+
 ## Reference
 
 Full documentation: https://github.com/b-open-io/better-auth-plugin

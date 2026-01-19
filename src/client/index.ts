@@ -557,7 +557,7 @@ export const sigmaClient = (options: SigmaClientOptions = {}) => {
 							redirect_uri: redirectUri,
 							response_type: "code",
 							state,
-							scope: "openid profile bsv:tools",
+							scope: "openid profile",
 							code_challenge: codeChallenge,
 							code_challenge_method: "S256",
 						});
