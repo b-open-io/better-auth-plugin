@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.54
+
+### Fixed
+- **Type compatibility**: Fixed `adapter.update` return type to match Better Auth's `Promise<void | null>`
+
 ## 0.0.53
 
 ### Added

@@ -236,7 +236,7 @@ interface BetterAuthInstance {
 				model: string;
 				where: Array<{ field: string; value: unknown }>;
 				update: Record<string, unknown>;
-			}): Promise<void>;
+			}): Promise<void | null>;
 		};
 		internalAdapter: {
 			createSession(
