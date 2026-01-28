@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.55
+
+### Fixed
+- **Type imports**: Import `Auth` type from `better-auth` instead of redefining custom `BetterAuthInstance` interface. This fixes type mismatches when consumers use the callback handler with their auth instance.
+
 ## 0.0.54
 
 ### Fixed

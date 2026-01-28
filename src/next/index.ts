@@ -3,6 +3,8 @@
  * Provides ready-to-use route handlers for OAuth callback
  */
 
+import type { Auth } from "better-auth";
+
 import {
 	exchangeCodeForTokens,
 	type TokenExchangeError,
@@ -219,48 +221,14 @@ export function parseErrorParams(
 }
 
 /**
- * Better Auth instance type for callback handler
+ * Extract adapter type from Auth for use in custom handlers
  */
-interface BetterAuthInstance {
-	$context: Promise<{
-		adapter: {
-			findOne<T>(args: {
-				model: string;
-				where: Array<{ field: string; value: unknown }>;
-			}): Promise<T | null>;
-			create<T>(args: {
-				model: string;
-				data: Record<string, unknown>;
-			}): Promise<T>;
-			update(args: {
-				model: string;
-				where: Array<{ field: string; value: unknown }>;
-				update: Record<string, unknown>;
-			}): Promise<void | null>;
-		};
-		internalAdapter: {
-			createSession(
-				userId: string,
-				headers?: Headers,
-				dontRememberMe?: boolean,
-			): Promise<{ token: string; expiresAt: Date }>;
-		};
-		secret: string;
-		authCookies: {
-			sessionToken: {
-				name: string;
-				options: {
-					path?: string;
-					secure?: boolean;
-					sameSite?: "lax" | "strict" | "none";
-				};
-			};
-		};
-		sessionConfig: {
-			expiresIn: number;
-		};
-	}>;
-}
+type AuthAdapter = Awaited<Auth["$context"]>["adapter"];
+
+/**
+ * Extract user data from token exchange for custom handlers
+ */
+type SigmaUser = TokenExchangeResult["user"];
 
 /**
  * Configuration for the Better Auth callback route handler
@@ -274,19 +242,15 @@ export interface BetterAuthCallbackConfig extends CallbackRouteConfig {
 	 * export const POST = createBetterAuthCallbackHandler({ auth });
 	 * ```
 	 */
-	auth: BetterAuthInstance;
+	auth: Auth;
 
 	/**
 	 * Custom user creation handler
 	 * Override to customize how users are created from Sigma identity
 	 */
 	createUser?: (
-		adapter: BetterAuthInstance["$context"] extends Promise<infer T>
-			? T extends { adapter: infer A }
-				? A
-				: never
-			: never,
-		sigmaUser: TokenExchangeResult["user"],
+		adapter: AuthAdapter,
+		sigmaUser: SigmaUser,
 	) => Promise<{ id: string }>;
 
 	/**
@@ -294,12 +258,8 @@ export interface BetterAuthCallbackConfig extends CallbackRouteConfig {
 	 * Override to customize how existing users are found
 	 */
 	findUser?: (
-		adapter: BetterAuthInstance["$context"] extends Promise<infer T>
-			? T extends { adapter: infer A }
-				? A
-				: never
-			: never,
-		sigmaUser: TokenExchangeResult["user"],
+		adapter: AuthAdapter,
+		sigmaUser: SigmaUser,
 	) => Promise<{ id: string } | null>;
 
 	/**
@@ -309,13 +269,9 @@ export interface BetterAuthCallbackConfig extends CallbackRouteConfig {
 	 */
 	updateUser?:
 		| ((
-				adapter: BetterAuthInstance["$context"] extends Promise<infer T>
-					? T extends { adapter: infer A }
-						? A
-						: never
-					: never,
+				adapter: AuthAdapter,
 				userId: string,
-				sigmaUser: TokenExchangeResult["user"],
+				sigmaUser: SigmaUser,
 		  ) => Promise<void>)
 		| false;
 }
@@ -585,7 +541,6 @@ export function createBetterAuthCallbackHandler(
 			// Create session using internal adapter
 			const session = await internalAdapter.createSession(
 				userId,
-				request.headers,
 				false, // dontRememberMe
 			);
 
