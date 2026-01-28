@@ -532,6 +532,62 @@ export function createBetterAuthCallbackHandler(
 				userId,
 			);
 
+			// Create or update account record for multi-provider support
+			const sigmaAccountId = result.user.sub;
+			const existingAccount = await adapter.findOne<{ id: string }>({
+				model: "account",
+				where: [
+					{ field: "providerId", value: "sigma" },
+					{ field: "accountId", value: sigmaAccountId },
+				],
+			});
+
+			const now = new Date();
+			const accessTokenExpiresAt = result.expires_in
+				? new Date(Date.now() + result.expires_in * 1000)
+				: null;
+
+			if (existingAccount) {
+				// Update existing account with fresh tokens
+				await adapter.update({
+					model: "account",
+					where: [{ field: "id", value: existingAccount.id }],
+					update: {
+						accessToken: result.access_token,
+						refreshToken: result.refresh_token,
+						idToken: result.id_token,
+						accessTokenExpiresAt,
+						updatedAt: now,
+					},
+				});
+				console.log(
+					"[Sigma BA Callback] Updated account record:",
+					existingAccount.id,
+				);
+			} else {
+				// Create new account record
+				const accountId =
+					typeof ctx.generateId === "function"
+						? ctx.generateId({ model: "account", size: 32 })
+						: crypto.randomUUID();
+				await adapter.create({
+					model: "account",
+					data: {
+						id: accountId,
+						accountId: sigmaAccountId,
+						providerId: "sigma",
+						userId,
+						accessToken: result.access_token,
+						refreshToken: result.refresh_token,
+						idToken: result.id_token,
+						accessTokenExpiresAt,
+						createdAt: now,
+						updatedAt: now,
+					},
+				});
+				console.log("[Sigma BA Callback] Created account record:", accountId);
+			}
+
 			// Create session using internal adapter
 			const session = await internalAdapter.createSession(
 				userId,
@@ -559,7 +615,8 @@ export function createBetterAuthCallbackHandler(
 				attributes?: Record<string, unknown>;
 				options?: Record<string, unknown>;
 			};
-			const cookieAttrs = sessionTokenConfig.attributes || sessionTokenConfig.options || {};
+			const cookieAttrs =
+				sessionTokenConfig.attributes || sessionTokenConfig.options || {};
 
 			// Sign the session token
 			const { createHMAC } = await import("@better-auth/utils/hmac");
@@ -578,6 +635,7 @@ export function createBetterAuthCallbackHandler(
 				access_token: result.access_token,
 				id_token: result.id_token,
 				refresh_token: result.refresh_token,
+				expires_in: result.expires_in,
 				userId,
 				isNewUser,
 			} satisfies BetterAuthCallbackResult);

@@ -357,6 +357,7 @@ export function createPayloadCallbackHandler(config: PayloadCallbackConfig) {
 				access_token: result.access_token,
 				id_token: result.id_token,
 				refresh_token: result.refresh_token,
+				expires_in: result.expires_in,
 				payloadUserId: userId,
 				isNewUser,
 			} satisfies PayloadCallbackResult);

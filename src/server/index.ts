@@ -27,6 +27,8 @@ export interface TokenExchangeResult {
 	access_token: string;
 	id_token: string;
 	refresh_token?: string;
+	/** Token expiry time in seconds from issuance */
+	expires_in: number;
 }
 
 export interface TokenExchangeError {
@@ -187,5 +189,6 @@ export async function exchangeCodeForTokens(
 		access_token: tokens.access_token,
 		id_token: tokens.id_token,
 		refresh_token: tokens.refresh_token,
+		expires_in: tokens.expires_in,
 	};
 }
