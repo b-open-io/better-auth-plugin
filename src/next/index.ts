@@ -97,12 +97,9 @@ export function createCallbackHandler(config?: CallbackRouteConfig) {
 
 			const callbackPath = config?.callbackPath || "/auth/sigma/callback";
 
-			// Determine the origin - prefer explicit env var, then Railway domain, then x-forwarded headers, then request origin
+			// Determine the origin - prefer explicit env var, then x-forwarded headers, then request origin
 			// This handles reverse proxy scenarios where request.nextUrl.origin returns localhost
 			let origin = process.env.NEXT_PUBLIC_APP_URL;
-			if (!origin && process.env.RAILWAY_PUBLIC_DOMAIN) {
-				origin = `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
-			}
 			if (!origin) {
 				const forwardedHost = request.headers.get("x-forwarded-host");
 				const forwardedProto =
@@ -383,9 +380,6 @@ export function createBetterAuthCallbackHandler(
 
 			// Determine the origin
 			let origin = process.env.NEXT_PUBLIC_APP_URL;
-			if (!origin && process.env.RAILWAY_PUBLIC_DOMAIN) {
-				origin = `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
-			}
 			if (!origin) {
 				const forwardedHost = request.headers.get("x-forwarded-host");
 				const forwardedProto =

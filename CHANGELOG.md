@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Removed
+- Railway environment variable fallback from origin detection
+
 ## 0.0.55
 
 ### Fixed
