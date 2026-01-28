@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.0.58
+
+### Fixed
+- **Account record creation**: `createBetterAuthCallbackHandler` now properly creates account records in Better Auth's `account` table, enabling multi-provider authentication, account linking, and token refresh.
+
+### Added
+- **Architecture diagram**: README now includes a diagram showing how the plugin runs inside your app (not on the Sigma server).
+
+## 0.0.57
+
+### Fixed
+- **Cookie attributes access**: Fixed null-safe cookie attribute access for Better Auth compatibility.
+
 ## 0.0.56
 
 ### Fixed

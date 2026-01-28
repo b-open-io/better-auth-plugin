@@ -27,6 +27,42 @@ Or via Claude Code marketplace:
 /plugin install sigma-auth@b-open-io
 ```
 
+## How It Works
+
+The plugin runs **inside your app**, not on the Sigma server. It handles OAuth token exchange and Better Auth integration:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Your App (runs on your server/Vercel)                           │
+│                                                                 │
+│  ┌─────────────────────┐    ┌──────────────────────────────┐   │
+│  │ auth-server.ts      │    │ /api/auth/sigma/callback     │   │
+│  │ - betterAuth()      │◄───│ - createBetterAuthCallback   │   │
+│  │ - sigmaProvider()   │    │   Handler({ auth })          │   │
+│  └─────────────────────┘    └──────────────────────────────┘   │
+│           │                              │                      │
+│           ▼                              ▼                      │
+│  ┌─────────────────────┐    ┌──────────────────────────────┐   │
+│  │ Your Database       │    │ @sigma-auth/better-auth-     │   │
+│  │ - users             │◄───│ plugin (this package)        │   │
+│  │ - accounts          │    │                              │   │
+│  │ - sessions          │    │ Exchanges code for tokens,   │   │
+│  └─────────────────────┘    │ creates users/accounts/      │   │
+│                             │ sessions in YOUR database    │   │
+│                             └──────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+                                       │
+                                       │ OAuth flow
+                                       ▼
+                        ┌──────────────────────────────────┐
+                        │ auth.sigmaidentity.com           │
+                        │ (External Sigma Auth Server)     │
+                        │ - /oauth2/authorize              │
+                        │ - /oauth2/token                  │
+                        │ - /oauth2/userinfo               │
+                        └──────────────────────────────────┘
+```
+
 ## Entry Points
 
 This package provides multiple entry points for different use cases:
