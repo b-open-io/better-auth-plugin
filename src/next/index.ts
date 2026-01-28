@@ -553,7 +553,18 @@ export function createBetterAuthCallbackHandler(
 
 			// Build response with session cookie
 			const sessionCookieName = ctx.authCookies.sessionToken.name;
-			const cookieOptions = ctx.authCookies.sessionToken.options;
+			// Better Auth uses 'attributes' at runtime despite types saying 'options'
+			const cookieAttrs =
+				(
+					ctx.authCookies.sessionToken as {
+						name: string;
+						attributes?: Record<string, unknown>;
+						options?: Record<string, unknown>;
+					}
+				).attributes ||
+				(ctx.authCookies.sessionToken as { options?: Record<string, unknown> })
+					.options ||
+				{};
 
 			// Sign the session token
 			const { createHMAC } = await import("@better-auth/utils/hmac");
@@ -576,8 +587,11 @@ export function createBetterAuthCallbackHandler(
 				isNewUser,
 			} satisfies BetterAuthCallbackResult);
 
-			// Set the session cookie
-			const cookieValue = `${sessionCookieName}=${signedToken}; Path=${cookieOptions.path || "/"}; HttpOnly; ${cookieOptions.secure ? "Secure; " : ""}SameSite=${cookieOptions.sameSite || "lax"}; Max-Age=${ctx.sessionConfig.expiresIn}`;
+			// Set the session cookie with null-safe access to cookie attributes
+			const cookiePath = (cookieAttrs.path as string) || "/";
+			const cookieSecure = cookieAttrs.secure as boolean | undefined;
+			const cookieSameSite = (cookieAttrs.sameSite as string) || "lax";
+			const cookieValue = `${sessionCookieName}=${signedToken}; Path=${cookiePath}; HttpOnly; ${cookieSecure ? "Secure; " : ""}SameSite=${cookieSameSite}; Max-Age=${ctx.sessionConfig.expiresIn}`;
 
 			response.headers.set("Set-Cookie", cookieValue);
 

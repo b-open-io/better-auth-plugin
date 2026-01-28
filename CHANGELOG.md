@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.0.56
+
+### Fixed
+- **Cookie attributes access**: Fixed crash when setting session cookie - Better Auth uses `attributes` at runtime despite types saying `options`. The callback handler now correctly accesses `authCookies.sessionToken.attributes` with fallback to `options` for compatibility.
 
 ### Removed
 - Railway environment variable fallback from origin detection
