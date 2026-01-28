@@ -6,6 +6,7 @@
 import {
 	exchangeCodeForTokens,
 	type TokenExchangeError,
+	type TokenExchangeResult,
 } from "../server/index.js";
 
 interface NextRequest {
@@ -214,5 +215,453 @@ export function parseErrorParams(
 		error,
 		errorDescription:
 			searchParams.get("error_description") || "An unknown error occurred",
+	};
+}
+
+/**
+ * Better Auth instance type for callback handler
+ */
+interface BetterAuthInstance {
+	$context: Promise<{
+		adapter: {
+			findOne<T>(args: {
+				model: string;
+				where: Array<{ field: string; value: unknown }>;
+			}): Promise<T | null>;
+			create<T>(args: {
+				model: string;
+				data: Record<string, unknown>;
+			}): Promise<T>;
+			update(args: {
+				model: string;
+				where: Array<{ field: string; value: unknown }>;
+				update: Record<string, unknown>;
+			}): Promise<void>;
+		};
+		internalAdapter: {
+			createSession(
+				userId: string,
+				headers?: Headers,
+				dontRememberMe?: boolean,
+			): Promise<{ token: string; expiresAt: Date }>;
+		};
+		secret: string;
+		authCookies: {
+			sessionToken: {
+				name: string;
+				options: {
+					path?: string;
+					secure?: boolean;
+					sameSite?: "lax" | "strict" | "none";
+				};
+			};
+		};
+		sessionConfig: {
+			expiresIn: number;
+		};
+	}>;
+}
+
+/**
+ * Configuration for the Better Auth callback route handler
+ */
+export interface BetterAuthCallbackConfig extends CallbackRouteConfig {
+	/**
+	 * Better Auth instance from your auth-server.ts
+	 * @example
+	 * ```typescript
+	 * import { auth } from "@/lib/auth-server";
+	 * export const POST = createBetterAuthCallbackHandler({ auth });
+	 * ```
+	 */
+	auth: BetterAuthInstance;
+
+	/**
+	 * Custom user creation handler
+	 * Override to customize how users are created from Sigma identity
+	 */
+	createUser?: (
+		adapter: BetterAuthInstance["$context"] extends Promise<infer T>
+			? T extends { adapter: infer A }
+				? A
+				: never
+			: never,
+		sigmaUser: TokenExchangeResult["user"],
+	) => Promise<{ id: string }>;
+
+	/**
+	 * Custom user lookup handler
+	 * Override to customize how existing users are found
+	 */
+	findUser?: (
+		adapter: BetterAuthInstance["$context"] extends Promise<infer T>
+			? T extends { adapter: infer A }
+				? A
+				: never
+			: never,
+		sigmaUser: TokenExchangeResult["user"],
+	) => Promise<{ id: string } | null>;
+
+	/**
+	 * Custom user update handler
+	 * Override to customize how existing users are updated with latest profile data
+	 * Set to false to disable updates entirely
+	 */
+	updateUser?:
+		| ((
+				adapter: BetterAuthInstance["$context"] extends Promise<infer T>
+					? T extends { adapter: infer A }
+						? A
+						: never
+					: never,
+				userId: string,
+				sigmaUser: TokenExchangeResult["user"],
+		  ) => Promise<void>)
+		| false;
+}
+
+/**
+ * Result returned from the Better Auth callback handler
+ */
+export interface BetterAuthCallbackResult extends TokenExchangeResult {
+	/** The Better Auth user ID */
+	userId: string;
+	/** Whether a new user was created */
+	isNewUser: boolean;
+}
+
+/**
+ * Creates a Next.js POST route handler for Sigma OAuth callback with Better Auth session creation
+ *
+ * This handler:
+ * 1. Exchanges the authorization code for tokens
+ * 2. Finds or creates a user in Better Auth
+ * 3. Creates a session via Better Auth's internal adapter
+ * 4. Sets the session cookie
+ * 5. Returns the tokens and user data
+ *
+ * @example
+ * ```typescript
+ * // app/api/auth/sigma/callback/route.ts
+ * import { createBetterAuthCallbackHandler } from "@sigma-auth/better-auth-plugin/next";
+ * import { auth } from "@/lib/auth-server";
+ *
+ * export const runtime = "nodejs";
+ * export const POST = createBetterAuthCallbackHandler({ auth });
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // With custom user creation
+ * export const POST = createBetterAuthCallbackHandler({
+ *   auth,
+ *   createUser: async (adapter, sigmaUser) => {
+ *     return adapter.create({
+ *       model: "user",
+ *       data: {
+ *         email: sigmaUser.email,
+ *         name: sigmaUser.name,
+ *         emailVerified: true,
+ *         bapId: sigmaUser.bap_id,
+ *         role: "subscriber", // Custom field
+ *         createdAt: new Date(),
+ *         updatedAt: new Date(),
+ *       },
+ *     });
+ *   },
+ * });
+ * ```
+ */
+export function createBetterAuthCallbackHandler(
+	config: BetterAuthCallbackConfig,
+) {
+	return async (request: NextRequest) => {
+		try {
+			const body = (await request.json()) as {
+				code?: string;
+				code_verifier?: string;
+			};
+			const { code, code_verifier } = body;
+
+			if (!code) {
+				return Response.json(
+					{ error: "Missing authorization code" },
+					{ status: 400 },
+				);
+			}
+
+			// Get configuration from env or config
+			const memberPrivateKey =
+				config.memberPrivateKey || process.env.SIGMA_MEMBER_PRIVATE_KEY;
+			if (!memberPrivateKey) {
+				console.error(
+					"[Sigma BA Callback] SIGMA_MEMBER_PRIVATE_KEY not configured",
+				);
+				return Response.json(
+					{
+						error: "Server configuration error",
+						details: "Missing SIGMA_MEMBER_PRIVATE_KEY",
+					},
+					{ status: 500 },
+				);
+			}
+
+			const issuerUrl =
+				config.issuerUrl ||
+				process.env.NEXT_PUBLIC_SIGMA_AUTH_URL ||
+				"https://auth.sigmaidentity.com";
+
+			const clientId =
+				config.clientId || process.env.NEXT_PUBLIC_SIGMA_CLIENT_ID;
+			if (!clientId) {
+				console.error(
+					"[Sigma BA Callback] NEXT_PUBLIC_SIGMA_CLIENT_ID not configured",
+				);
+				return Response.json(
+					{ error: "Server configuration error", details: "Missing client ID" },
+					{ status: 500 },
+				);
+			}
+
+			const callbackPath = config.callbackPath || "/auth/sigma/callback";
+
+			// Determine the origin
+			let origin = process.env.NEXT_PUBLIC_APP_URL;
+			if (!origin && process.env.RAILWAY_PUBLIC_DOMAIN) {
+				origin = `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
+			}
+			if (!origin) {
+				const forwardedHost = request.headers.get("x-forwarded-host");
+				const forwardedProto =
+					request.headers.get("x-forwarded-proto") || "https";
+				if (forwardedHost) {
+					origin = `${forwardedProto}://${forwardedHost}`;
+				} else {
+					origin = request.nextUrl.origin;
+				}
+			}
+			const redirectUri = `${origin}${callbackPath}`;
+
+			console.log("[Sigma BA Callback] Exchanging code for tokens:", {
+				issuerUrl,
+				clientId,
+				redirectUri,
+			});
+
+			// Exchange authorization code for tokens
+			const result = await exchangeCodeForTokens({
+				code,
+				redirectUri,
+				clientId,
+				memberPrivateKey,
+				codeVerifier: code_verifier,
+				issuerUrl,
+			});
+
+			const bapId =
+				result.user.bap_id ||
+				(typeof result.user.bap === "object"
+					? result.user.bap?.idKey
+					: undefined);
+			console.log("[Sigma BA Callback] Token exchange success:", {
+				hasBap: !!result.user.bap,
+				name: result.user.name,
+				bapId: bapId?.substring(0, 20) || "none",
+			});
+
+			// Get Better Auth context
+			const ctx = await config.auth.$context;
+			const { adapter, internalAdapter } = ctx;
+
+			// Extract user info from Sigma response
+			const bap = typeof result.user.bap === "object" ? result.user.bap : null;
+			const email = result.user.email || `${result.user.sub}@sigma.local`;
+			const name = result.user.name || bap?.identity?.alternateName || "User";
+			const image = result.user.picture || bap?.identity?.image;
+
+			// Find or create user
+			let userId: string;
+			let isNewUser = false;
+
+			if (config.findUser) {
+				const existingUser = await config.findUser(adapter, result.user);
+				if (existingUser) {
+					userId = existingUser.id;
+					// Update user if handler provided
+					if (config.updateUser !== false) {
+						if (config.updateUser) {
+							await config.updateUser(adapter, userId, result.user);
+						} else {
+							// Default update
+							await adapter.update({
+								model: "user",
+								where: [{ field: "id", value: userId }],
+								update: {
+									name,
+									image,
+									bapId,
+									updatedAt: new Date(),
+								},
+							});
+						}
+					}
+				} else if (config.createUser) {
+					const newUser = await config.createUser(adapter, result.user);
+					userId = newUser.id;
+					isNewUser = true;
+				} else {
+					// Default user creation
+					const newUser = await adapter.create<{ id: string }>({
+						model: "user",
+						data: {
+							email,
+							name,
+							image,
+							bapId,
+							emailVerified: true,
+							createdAt: new Date(),
+							updatedAt: new Date(),
+						},
+					});
+					userId = newUser.id;
+					isNewUser = true;
+				}
+			} else {
+				// Default user lookup by email
+				const existingUser = await adapter.findOne<{ id: string }>({
+					model: "user",
+					where: [{ field: "email", value: email }],
+				});
+
+				if (existingUser) {
+					userId = existingUser.id;
+					// Update user with latest profile data
+					if (config.updateUser !== false) {
+						if (config.updateUser) {
+							await config.updateUser(adapter, userId, result.user);
+						} else {
+							await adapter.update({
+								model: "user",
+								where: [{ field: "id", value: userId }],
+								update: {
+									name,
+									image,
+									bapId,
+									updatedAt: new Date(),
+								},
+							});
+						}
+					}
+					console.log("[Sigma BA Callback] Updated existing user:", userId);
+				} else if (config.createUser) {
+					const newUser = await config.createUser(adapter, result.user);
+					userId = newUser.id;
+					isNewUser = true;
+				} else {
+					// Default user creation
+					const newUser = await adapter.create<{ id: string }>({
+						model: "user",
+						data: {
+							email,
+							name,
+							image,
+							bapId,
+							emailVerified: true,
+							createdAt: new Date(),
+							updatedAt: new Date(),
+						},
+					});
+					userId = newUser.id;
+					isNewUser = true;
+				}
+			}
+
+			console.log(
+				"[Sigma BA Callback]",
+				isNewUser ? "Created new user:" : "Found existing user:",
+				userId,
+			);
+
+			// Create session using internal adapter
+			const session = await internalAdapter.createSession(
+				userId,
+				request.headers,
+				false, // dontRememberMe
+			);
+
+			if (!session) {
+				console.error("[Sigma BA Callback] Failed to create session");
+				return Response.json(
+					{ error: "Failed to create session" },
+					{ status: 500 },
+				);
+			}
+
+			console.log(
+				"[Sigma BA Callback] Session created:",
+				`${session.token.substring(0, 20)}...`,
+			);
+
+			// Build response with session cookie
+			const sessionCookieName = ctx.authCookies.sessionToken.name;
+			const cookieOptions = ctx.authCookies.sessionToken.options;
+
+			// Sign the session token
+			const { createHMAC } = await import("@better-auth/utils/hmac");
+			const signature = await createHMAC("SHA-256", "base64urlnopad").sign(
+				ctx.secret,
+				session.token,
+			);
+			const signedToken = `${session.token}.${signature}`;
+
+			// Create response
+			const response = Response.json({
+				user: {
+					...result.user,
+					sub: userId,
+				},
+				access_token: result.access_token,
+				id_token: result.id_token,
+				refresh_token: result.refresh_token,
+				userId,
+				isNewUser,
+			} satisfies BetterAuthCallbackResult);
+
+			// Set the session cookie
+			const cookieValue = `${sessionCookieName}=${signedToken}; Path=${cookieOptions.path || "/"}; HttpOnly; ${cookieOptions.secure ? "Secure; " : ""}SameSite=${cookieOptions.sameSite || "lax"}; Max-Age=${ctx.sessionConfig.expiresIn}`;
+
+			response.headers.set("Set-Cookie", cookieValue);
+
+			return response;
+		} catch (error) {
+			console.error("[Sigma BA Callback] Error:", error);
+
+			// Check if it's a TokenExchangeError
+			if (
+				error &&
+				typeof error === "object" &&
+				"error" in error &&
+				"endpoint" in error
+			) {
+				const tokenError = error as TokenExchangeError;
+				return Response.json(
+					{
+						error: tokenError.error,
+						details: tokenError.details,
+						status: tokenError.status,
+						endpoint: tokenError.endpoint,
+					},
+					{ status: tokenError.status || 500 },
+				);
+			}
+
+			return Response.json(
+				{
+					error: "Internal server error",
+					details: error instanceof Error ? error.message : "Unknown error",
+				},
+				{ status: 500 },
+			);
+		}
 	};
 }

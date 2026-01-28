@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.0.53
+
+### Added
+- **createBetterAuthCallbackHandler**: New callback handler for vanilla Next.js + Better Auth setups (same-domain, session cookie)
+  - Import from `@sigma-auth/better-auth-plugin/next`
+  - Exchanges OAuth code for tokens, creates/updates user, sets session cookie
+  - Replaces 100+ lines of manual session creation code with a single function call
+  - Supports custom `findUser`, `createUser`, and `updateUser` handlers
+
 ## 0.0.52
 
 ### Breaking Changes
