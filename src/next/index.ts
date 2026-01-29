@@ -243,34 +243,6 @@ export interface BetterAuthCallbackConfig extends CallbackRouteConfig {
 	auth: Auth;
 
 	/**
-	 * Custom cookie setter - use with Next.js cookies() API for reliable cookie handling
-	 * When provided, this is used instead of the Set-Cookie response header
-	 *
-	 * @example
-	 * ```typescript
-	 * import { cookies } from "next/headers";
-	 * export const POST = createBetterAuthCallbackHandler({
-	 *   auth,
-	 *   setCookie: async (name, value, options) => {
-	 *     const cookieStore = await cookies();
-	 *     cookieStore.set(name, value, options);
-	 *   },
-	 * });
-	 * ```
-	 */
-	setCookie?: (
-		name: string,
-		value: string,
-		options: {
-			path: string;
-			httpOnly: boolean;
-			secure: boolean;
-			sameSite: "lax" | "strict" | "none";
-			maxAge: number;
-		},
-	) => void | Promise<void>;
-
-	/**
 	 * Custom user creation handler
 	 * Override to customize how users are created from Sigma identity
 	 */
@@ -642,10 +614,12 @@ export function createBetterAuthCallbackHandler(
 				sessionTokenConfig.attributes || sessionTokenConfig.options || {};
 
 			// Sign the session token with HMAC-SHA256
+			// MUST use standard base64 (not base64url) to match better-call's
+			// getSignedCookie() which expects exactly 44 chars ending with "="
 			const signature = crypto
 				.createHmac("sha256", ctx.secret)
 				.update(session.token)
-				.digest("base64url");
+				.digest("base64");
 			const signedToken = `${session.token}.${signature}`;
 
 			const cookiePath = (cookieAttrs?.path as string) ?? "/";
@@ -659,8 +633,6 @@ export function createBetterAuthCallbackHandler(
 			console.log(
 				"[Sigma BA Callback] Setting cookie:",
 				sessionCookieName,
-				"method:",
-				config.setCookie ? "setCookie callback" : "Set-Cookie header",
 			);
 
 			const responseBody = {
@@ -676,20 +648,12 @@ export function createBetterAuthCallbackHandler(
 				isNewUser,
 			} satisfies BetterAuthCallbackResult;
 
-			// Use setCookie callback if provided (recommended for Next.js App Router)
-			if (config.setCookie) {
-				await config.setCookie(sessionCookieName, signedToken, {
-					path: cookiePath,
-					httpOnly: true,
-					secure: cookieSecure,
-					sameSite: cookieSameSite,
-					maxAge,
-				});
-				return Response.json(responseBody);
-			}
-
-			// Fallback: Set-Cookie response header
-			const cookieValue = `${sessionCookieName}=${signedToken}; Path=${cookiePath}; HttpOnly; ${cookieSecure ? "Secure; " : ""}SameSite=${cookieSameSite}; Max-Age=${maxAge}`;
+			// Set cookie via Set-Cookie response header
+			// Note: Do NOT use Next.js cookies().set() + Response.json() - Next.js
+			// only merges mutable cookies into NextResponse, not plain Response.
+			// A plain Response with Set-Cookie header works correctly.
+			const encodedToken = encodeURIComponent(signedToken);
+			const cookieValue = `${sessionCookieName}=${encodedToken}; Path=${cookiePath}; HttpOnly; ${cookieSecure ? "Secure; " : ""}SameSite=${cookieSameSite}; Max-Age=${maxAge}`;
 			return new Response(JSON.stringify(responseBody), {
 				status: 200,
 				headers: {

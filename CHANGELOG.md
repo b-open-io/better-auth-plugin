@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.0.63
+
+### Fixed
+- **Session cookie HMAC signature format**: Changed from `base64url` to standard `base64` encoding to match better-call's `getSignedCookie()` verification which expects exactly 44 chars ending with `=`. This was the root cause of the auth redirect loop - the cookie was being set but Better Auth rejected the signature format when reading it back via `getSession()`.
+
+### Removed
+- **`setCookie` callback**: Removed from `BetterAuthCallbackConfig`. Next.js `cookies().set()` only merges into `NextResponse`, not plain `Response` objects. The Set-Cookie response header approach works correctly with standard `Response`.
+
 ## 0.0.59
 
 ### Fixed
