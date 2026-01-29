@@ -653,60 +653,54 @@ export const sigmaClient = (options: SigmaClientOptions = {}) => {
 
 						// Exchange code for tokens via backend API
 						// This must be done server-side because it requires bitcoin-auth signature
+						// IMPORTANT: Use $fetch (Better Auth's fetch wrapper) for proper credential/cookie handling
 						try {
-							const response = await fetch("/api/auth/sigma/callback", {
+							const res = await $fetch<OAuthCallbackResult>("/sigma/callback", {
 								method: "POST",
-								headers: {
-									"Content-Type": "application/json",
-								},
-								body: JSON.stringify({
+								body: {
 									code,
 									state,
 									code_verifier: codeVerifier,
-								}),
+								},
 							});
 
-							if (!response.ok) {
+							if (res.error) {
 								let errorMessage =
 									"Failed to exchange authorization code for access token.";
 								let errorTitle = "Token Exchange Failed";
 
-								try {
-									const errorData = (await response.json()) as {
-										endpoint?: string;
-										status?: number;
-										details?: string;
-										error?: string;
-									};
-									const endpoint = errorData.endpoint || "unknown";
-									const status = errorData.status || response.status;
+								const errorData = res.error as {
+									endpoint?: string;
+									status?: number;
+									details?: string;
+									error?: string;
+								};
+								const endpoint = errorData.endpoint || "unknown";
+								const status = errorData.status || 500;
 
-									// Parse nested error details if present
-									if (errorData.details) {
-										try {
-											const nestedError = JSON.parse(errorData.details) as {
-												error_description?: string;
-												error?: string;
-											};
-											if (nestedError.error_description) {
-												errorMessage = nestedError.error_description;
-											}
-											if (nestedError.error === "invalid_client") {
-												errorTitle = "Platform Not Registered";
-												errorMessage =
-													"This platform is not registered with the authentication server.";
-											}
-										} catch {
-											errorMessage = errorData.details;
+								// Parse nested error details if present
+								if (errorData.details) {
+									try {
+										const nestedError = JSON.parse(errorData.details) as {
+											error_description?: string;
+											error?: string;
+										};
+										if (nestedError.error_description) {
+											errorMessage = nestedError.error_description;
 										}
-									} else if (errorData.error) {
-										errorMessage = errorData.error;
+										if (nestedError.error === "invalid_client") {
+											errorTitle = "Platform Not Registered";
+											errorMessage =
+												"This platform is not registered with the authentication server.";
+										}
+									} catch {
+										errorMessage = errorData.details;
 									}
-
-									errorMessage += `\n\nBackend: ${status} (${endpoint})`;
-								} catch {
-									// Use default error message
+								} else if (errorData.error) {
+									errorMessage = errorData.error;
 								}
+
+								errorMessage += `\n\nBackend: ${status} (${endpoint})`;
 
 								throw {
 									title: errorTitle,
@@ -714,7 +708,7 @@ export const sigmaClient = (options: SigmaClientOptions = {}) => {
 								} as OAuthCallbackError;
 							}
 
-							const data = (await response.json()) as OAuthCallbackResult;
+							const data = res.data as OAuthCallbackResult;
 
 							// Store bapId from user data for signing (from bap_id claim)
 							const bapId = data.user?.bap_id;

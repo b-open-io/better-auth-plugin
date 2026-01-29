@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.59
+
+### Fixed
+- **OAuth callback cookie handling**: `handleCallback()` now uses Better Auth's `$fetch` wrapper instead of raw `fetch()`, ensuring proper `credentials: 'include'` for session cookie handling. This fixes the redirect loop where users would see "Welcome back" toast but land on `/login` instead of the intended destination.
+
 ## 0.0.58
 
 ### Fixed

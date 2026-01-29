@@ -19,6 +19,10 @@ bun run lint:unsafe  # Auto-fix with unsafe transforms
 
 Publishing: `bun run prepublishOnly` runs lint, clean, and build before npm publish.
 
+## Testing
+
+**DO NOT use `bun link` to test this plugin locally in other projects.** It causes dependency resolution problems and doesn't help anyway - you can't test local changes on production deployments. The only way to test changes is to publish and update the consuming project.
+
 ## Architecture
 
 ### Entry Points
