@@ -650,11 +650,10 @@ export function createBetterAuthCallbackHandler(
 
 			const cookiePath = (cookieAttrs?.path as string) ?? "/";
 			const cookieSecure = (cookieAttrs?.secure as boolean) ?? true;
-			const cookieSameSite =
-				((cookieAttrs?.sameSite as string) ?? "lax") as
-					| "lax"
-					| "strict"
-					| "none";
+			const cookieSameSite = ((cookieAttrs?.sameSite as string) ?? "lax") as
+				| "lax"
+				| "strict"
+				| "none";
 			const maxAge = ctx.sessionConfig.expiresIn;
 
 			console.log(
