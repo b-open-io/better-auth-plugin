@@ -243,6 +243,34 @@ export interface BetterAuthCallbackConfig extends CallbackRouteConfig {
 	auth: Auth;
 
 	/**
+	 * Custom cookie setter - use with Next.js cookies() API for reliable cookie handling
+	 * When provided, this is used instead of the Set-Cookie response header
+	 *
+	 * @example
+	 * ```typescript
+	 * import { cookies } from "next/headers";
+	 * export const POST = createBetterAuthCallbackHandler({
+	 *   auth,
+	 *   setCookie: async (name, value, options) => {
+	 *     const cookieStore = await cookies();
+	 *     cookieStore.set(name, value, options);
+	 *   },
+	 * });
+	 * ```
+	 */
+	setCookie?: (
+		name: string,
+		value: string,
+		options: {
+			path: string;
+			httpOnly: boolean;
+			secure: boolean;
+			sameSite: "lax" | "strict" | "none";
+			maxAge: number;
+		},
+	) => void | Promise<void>;
+
+	/**
 	 * Custom user creation handler
 	 * Override to customize how users are created from Sigma identity
 	 */
@@ -393,11 +421,9 @@ export function createBetterAuthCallbackHandler(
 			}
 			const redirectUri = `${origin}${callbackPath}`;
 
-			console.log("[Sigma BA Callback] Exchanging code for tokens:", {
-				issuerUrl,
-				clientId,
-				redirectUri,
-			});
+			console.log(
+				`[Sigma BA Callback] Exchanging code for tokens: clientId=${clientId}, redirectUri=${redirectUri}`,
+			);
 
 			// Exchange authorization code for tokens
 			const result = await exchangeCodeForTokens({
@@ -414,11 +440,9 @@ export function createBetterAuthCallbackHandler(
 				(typeof result.user.bap === "object"
 					? result.user.bap?.idKey
 					: undefined);
-			console.log("[Sigma BA Callback] Token exchange success:", {
-				hasBap: !!result.user.bap,
-				name: result.user.name,
-				bapId: bapId?.substring(0, 20) || "none",
-			});
+			console.log(
+				`[Sigma BA Callback] Token exchange success: name=${result.user.name}, bapId=${bapId?.substring(0, 20) || "none"}`,
+			);
 
 			// Get Better Auth context
 			const ctx = await config.auth.$context;
@@ -503,7 +527,6 @@ export function createBetterAuthCallbackHandler(
 							});
 						}
 					}
-					console.log("[Sigma BA Callback] Updated existing user:", userId);
 				} else if (config.createUser) {
 					const newUser = await config.createUser(adapter, result.user);
 					userId = newUser.id;
@@ -608,9 +631,8 @@ export function createBetterAuthCallbackHandler(
 				`${session.token.substring(0, 20)}...`,
 			);
 
-			// Build response with session cookie
+			// Build session cookie
 			const sessionCookieName = ctx.authCookies.sessionToken.name;
-			// Better Auth cookie structure varies by version - safely extract attributes
 			const sessionTokenConfig = ctx.authCookies.sessionToken as {
 				name: string;
 				attributes?: Record<string, unknown>;
@@ -619,50 +641,63 @@ export function createBetterAuthCallbackHandler(
 			const cookieAttrs =
 				sessionTokenConfig.attributes || sessionTokenConfig.options || {};
 
-			// Sign the session token using Node.js crypto (guaranteed available in Vercel runtime)
+			// Sign the session token with HMAC-SHA256
 			const signature = crypto
 				.createHmac("sha256", ctx.secret)
 				.update(session.token)
 				.digest("base64url");
 			const signedToken = `${session.token}.${signature}`;
 
-			// Set the session cookie with safe defaults
 			const cookiePath = (cookieAttrs?.path as string) ?? "/";
 			const cookieSecure = (cookieAttrs?.secure as boolean) ?? true;
-			const cookieSameSite = (cookieAttrs?.sameSite as string) ?? "lax";
-			const cookieValue = `${sessionCookieName}=${signedToken}; Path=${cookiePath}; HttpOnly; ${cookieSecure ? "Secure; " : ""}SameSite=${cookieSameSite}; Max-Age=${ctx.sessionConfig.expiresIn}`;
+			const cookieSameSite =
+				((cookieAttrs?.sameSite as string) ?? "lax") as
+					| "lax"
+					| "strict"
+					| "none";
+			const maxAge = ctx.sessionConfig.expiresIn;
 
 			console.log(
 				"[Sigma BA Callback] Setting cookie:",
 				sessionCookieName,
-				"with path:",
-				cookiePath,
+				"method:",
+				config.setCookie ? "setCookie callback" : "Set-Cookie header",
 			);
 
-			// Create response with Set-Cookie header in constructor
-			// Using new Response() with explicit headers instead of Response.json() + headers.set()
-			// ensures the cookie header is properly included in the response
-			return new Response(
-				JSON.stringify({
-					user: {
-						...result.user,
-						sub: userId,
-					},
-					access_token: result.access_token,
-					id_token: result.id_token,
-					refresh_token: result.refresh_token,
-					expires_in: result.expires_in,
-					userId,
-					isNewUser,
-				} satisfies BetterAuthCallbackResult),
-				{
-					status: 200,
-					headers: {
-						"Content-Type": "application/json",
-						"Set-Cookie": cookieValue,
-					},
+			const responseBody = {
+				user: {
+					...result.user,
+					sub: userId,
 				},
-			);
+				access_token: result.access_token,
+				id_token: result.id_token,
+				refresh_token: result.refresh_token,
+				expires_in: result.expires_in,
+				userId,
+				isNewUser,
+			} satisfies BetterAuthCallbackResult;
+
+			// Use setCookie callback if provided (recommended for Next.js App Router)
+			if (config.setCookie) {
+				await config.setCookie(sessionCookieName, signedToken, {
+					path: cookiePath,
+					httpOnly: true,
+					secure: cookieSecure,
+					sameSite: cookieSameSite,
+					maxAge,
+				});
+				return Response.json(responseBody);
+			}
+
+			// Fallback: Set-Cookie response header
+			const cookieValue = `${sessionCookieName}=${signedToken}; Path=${cookiePath}; HttpOnly; ${cookieSecure ? "Secure; " : ""}SameSite=${cookieSameSite}; Max-Age=${maxAge}`;
+			return new Response(JSON.stringify(responseBody), {
+				status: 200,
+				headers: {
+					"Content-Type": "application/json",
+					"Set-Cookie": cookieValue,
+				},
+			});
 		} catch (error) {
 			console.error("[Sigma BA Callback] Error:", error);
 
