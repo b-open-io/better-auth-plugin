@@ -3,6 +3,7 @@
  * Provides ready-to-use route handlers for OAuth callback
  */
 
+import crypto from "node:crypto";
 import type { Auth } from "better-auth";
 
 import {
@@ -618,12 +619,11 @@ export function createBetterAuthCallbackHandler(
 			const cookieAttrs =
 				sessionTokenConfig.attributes || sessionTokenConfig.options || {};
 
-			// Sign the session token
-			const { createHMAC } = await import("@better-auth/utils/hmac");
-			const signature = await createHMAC("SHA-256", "base64urlnopad").sign(
-				ctx.secret,
-				session.token,
-			);
+			// Sign the session token using Node.js crypto (guaranteed available in Vercel runtime)
+			const signature = crypto
+				.createHmac("sha256", ctx.secret)
+				.update(session.token)
+				.digest("base64url");
 			const signedToken = `${session.token}.${signature}`;
 
 			// Set the session cookie with safe defaults
