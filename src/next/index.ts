@@ -630,10 +630,7 @@ export function createBetterAuthCallbackHandler(
 				| "none";
 			const maxAge = ctx.sessionConfig.expiresIn;
 
-			console.log(
-				"[Sigma BA Callback] Setting cookie:",
-				sessionCookieName,
-			);
+			console.log("[Sigma BA Callback] Setting cookie:", sessionCookieName);
 
 			const responseBody = {
 				user: {
