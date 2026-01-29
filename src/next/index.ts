@@ -626,29 +626,43 @@ export function createBetterAuthCallbackHandler(
 			);
 			const signedToken = `${session.token}.${signature}`;
 
-			// Create response
-			const response = Response.json({
-				user: {
-					...result.user,
-					sub: userId,
-				},
-				access_token: result.access_token,
-				id_token: result.id_token,
-				refresh_token: result.refresh_token,
-				expires_in: result.expires_in,
-				userId,
-				isNewUser,
-			} satisfies BetterAuthCallbackResult);
-
 			// Set the session cookie with safe defaults
 			const cookiePath = (cookieAttrs?.path as string) ?? "/";
 			const cookieSecure = (cookieAttrs?.secure as boolean) ?? true;
 			const cookieSameSite = (cookieAttrs?.sameSite as string) ?? "lax";
 			const cookieValue = `${sessionCookieName}=${signedToken}; Path=${cookiePath}; HttpOnly; ${cookieSecure ? "Secure; " : ""}SameSite=${cookieSameSite}; Max-Age=${ctx.sessionConfig.expiresIn}`;
 
-			response.headers.set("Set-Cookie", cookieValue);
+			console.log(
+				"[Sigma BA Callback] Setting cookie:",
+				sessionCookieName,
+				"with path:",
+				cookiePath,
+			);
 
-			return response;
+			// Create response with Set-Cookie header in constructor
+			// Using new Response() with explicit headers instead of Response.json() + headers.set()
+			// ensures the cookie header is properly included in the response
+			return new Response(
+				JSON.stringify({
+					user: {
+						...result.user,
+						sub: userId,
+					},
+					access_token: result.access_token,
+					id_token: result.id_token,
+					refresh_token: result.refresh_token,
+					expires_in: result.expires_in,
+					userId,
+					isNewUser,
+				} satisfies BetterAuthCallbackResult),
+				{
+					status: 200,
+					headers: {
+						"Content-Type": "application/json",
+						"Set-Cookie": cookieValue,
+					},
+				},
+			);
 		} catch (error) {
 			console.error("[Sigma BA Callback] Error:", error);
 
