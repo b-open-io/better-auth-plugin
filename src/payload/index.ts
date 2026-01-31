@@ -352,35 +352,43 @@ export function createPayloadCallbackHandler(config: PayloadCallbackConfig) {
 				);
 			}
 
-			try {
-				// @ts-expect-error - next/headers is only available in Next.js route handlers
-				const mod = await import("next/headers");
-				const cookieStore = await mod.cookies();
-				cookieStore.set(cookieName, signedValue, {
-					httpOnly: true,
-					secure: cookieOptions.secure ?? process.env.NODE_ENV === "production",
-					sameSite:
-						(cookieOptions.sameSite as "lax" | "strict" | "none") ?? "lax",
-					path: cookieOptions.path ?? "/",
-					maxAge: ctx.sessionConfig?.expiresIn,
-				});
-			} catch {
-				console.warn(
-					"[Sigma Payload Callback] Could not set cookie via next/headers",
-				);
-			}
+			// Build Set-Cookie header directly on the response
+			// Using next/headers cookies().set() doesn't reliably merge into Response.json()
+			const secure =
+				cookieOptions.secure ?? process.env.NODE_ENV === "production";
+			const sameSite =
+				(cookieOptions.sameSite as "lax" | "strict" | "none") ?? "lax";
+			const path = cookieOptions.path ?? "/";
+			const maxAge = ctx.sessionConfig?.expiresIn;
+
+			const cookieParts = [
+				`${cookieName}=${encodeURIComponent(signedValue)}`,
+				`Path=${path}`,
+				"HttpOnly",
+				`SameSite=${sameSite}`,
+			];
+			if (secure) cookieParts.push("Secure");
+			if (maxAge) cookieParts.push(`Max-Age=${maxAge}`);
 
 			console.log("[Sigma Payload Callback] Session created for user:", userId);
+			console.log("[Sigma Payload Callback] Setting cookie:", cookieName);
 
-			return Response.json({
-				user: result.user,
-				access_token: result.access_token,
-				id_token: result.id_token,
-				refresh_token: result.refresh_token,
-				expires_in: result.expires_in,
-				payloadUserId: userId,
-				isNewUser,
-			} satisfies PayloadCallbackResult);
+			return Response.json(
+				{
+					user: result.user,
+					access_token: result.access_token,
+					id_token: result.id_token,
+					refresh_token: result.refresh_token,
+					expires_in: result.expires_in,
+					payloadUserId: userId,
+					isNewUser,
+				} satisfies PayloadCallbackResult,
+				{
+					headers: {
+						"Set-Cookie": cookieParts.join("; "),
+					},
+				},
+			);
 		} catch (error) {
 			console.error("[Sigma Payload Callback] Error:", error);
 

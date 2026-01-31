@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.66
+
+### Fixed
+- **Payload callback cookie not being set**: Reverted to Set-Cookie response header approach instead of `next/headers` `cookies().set()`, which doesn't reliably merge into `Response.json()` objects. This regression was introduced in 0.0.65 and caused the session cookie to never reach the browser, resulting in auth redirect loops.
+
 ## 0.0.65
 
 ### Fixed
