@@ -243,6 +243,14 @@ export interface BetterAuthCallbackConfig extends CallbackRouteConfig {
 	auth: Auth;
 
 	/**
+	 * Domain to use for fallback email when Sigma user has no email set.
+	 * Email will be formatted as `{bapId}@{emailDomain}`.
+	 * Defaults to "sigma.local".
+	 * @example "myapp.com" → "Go8vCHAa4S6AhXKTABGpANiz35J@myapp.com"
+	 */
+	emailDomain?: string;
+
+	/**
 	 * Custom user creation handler
 	 * Override to customize how users are created from Sigma identity
 	 */
@@ -422,7 +430,9 @@ export function createBetterAuthCallbackHandler(
 
 			// Extract user info from Sigma response
 			const bap = typeof result.user.bap === "object" ? result.user.bap : null;
-			const email = result.user.email || `${result.user.sub}@sigma.local`;
+			const emailDomain = config.emailDomain || "sigma.local";
+			const email =
+				result.user.email || `${bapId || result.user.sub}@${emailDomain}`;
 			const name = result.user.name || bap?.identity?.alternateName || "User";
 			const image = result.user.picture || bap?.identity?.image;
 
@@ -447,6 +457,7 @@ export function createBetterAuthCallbackHandler(
 									name,
 									image,
 									bapId,
+									email,
 									updatedAt: new Date(),
 								},
 							});
@@ -494,6 +505,7 @@ export function createBetterAuthCallbackHandler(
 									name,
 									image,
 									bapId,
+									email,
 									updatedAt: new Date(),
 								},
 							});

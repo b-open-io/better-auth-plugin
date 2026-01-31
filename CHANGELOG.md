@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.0.64
+
+### Added
+- **`emailDomain` config option**: Apps can now control the fallback email domain for Sigma users who don't have an email set. Email is formatted as `{bapId}@{emailDomain}`. Defaults to `sigma.local`.
+
+### Changed
+- **Fallback email uses BAP ID**: When generating a fallback email, the BAP ID is now preferred over the random Sigma `sub` ID, producing meaningful addresses like `Go8vCHAa4S6AhXKTABGpANiz35J@myapp.com` instead of random strings.
+- **Email updated on re-login**: The default update handler now includes `email` in the update payload, so existing users get their email corrected when they next sign in.
+
 ## 0.0.63
 
 ### Fixed
