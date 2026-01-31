@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.65
+
+### Fixed
+- **Payload callback cookie name and signing**: `createPayloadCallbackHandler` now reads the correct cookie name and options from Better Auth's `authCookies` context instead of hardcoding `better-auth.session_token`. In production (HTTPS), Better Auth uses the `__Secure-` prefix, which was being missed. Also properly HMAC-signs the session token cookie to match Better Auth's `getSignedCookie()` verification.
+
 ## 0.0.64
 
 ### Added

@@ -328,23 +328,43 @@ export function createPayloadCallbackHandler(config: PayloadCallbackConfig) {
 
 			const sessionToken = session.token;
 
-			// Set session cookie using dynamic import to avoid hard dependency on next/headers
-			const sessionCookieName =
-				config.sessionCookieName || "better-auth.session_token";
+			// Get the correct cookie name and options from Better Auth's configuration
+			// Better Auth uses __Secure- prefix in production (HTTPS), and signs cookies with HMAC
+			const cookieName =
+				config.sessionCookieName ||
+				ctx.authCookies?.sessionToken?.name ||
+				"better-auth.session_token";
+			const cookieOptions = ctx.authCookies?.sessionToken?.options || {};
+			const secret = ctx.secret;
+
+			// Sign the session token the same way Better Auth does (value.signature)
+			let signedValue = sessionToken;
+			try {
+				const { createHMAC } = await import("@better-auth/utils/hmac");
+				const signature = await createHMAC("SHA-256", "base64urlnopad").sign(
+					secret,
+					sessionToken,
+				);
+				signedValue = `${sessionToken}.${signature}`;
+			} catch {
+				console.warn(
+					"[Sigma Payload Callback] Could not sign cookie, using unsigned value",
+				);
+			}
+
 			try {
 				// @ts-expect-error - next/headers is only available in Next.js route handlers
 				const mod = await import("next/headers");
 				const cookieStore = await mod.cookies();
-				cookieStore.set(sessionCookieName, sessionToken, {
+				cookieStore.set(cookieName, signedValue, {
 					httpOnly: true,
-					secure: process.env.NODE_ENV === "production",
-					sameSite: "lax",
-					path: "/",
-					expires: session.expiresAt,
+					secure: cookieOptions.secure ?? process.env.NODE_ENV === "production",
+					sameSite:
+						(cookieOptions.sameSite as "lax" | "strict" | "none") ?? "lax",
+					path: cookieOptions.path ?? "/",
+					maxAge: ctx.sessionConfig?.expiresIn,
 				});
 			} catch {
-				// Fallback: set cookie via response header if next/headers not available
-				// This shouldn't happen in Next.js route handlers but provides fallback
 				console.warn(
 					"[Sigma Payload Callback] Could not set cookie via next/headers",
 				);
