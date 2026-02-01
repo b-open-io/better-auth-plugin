@@ -13,6 +13,12 @@ export {
 	type TokenGate,
 } from "./admin.js";
 
+// Re-export callback plugin
+export {
+	type SigmaCallbackOptions,
+	sigmaCallbackPlugin,
+} from "./callback-plugin.js";
+
 export interface TokenExchangeOptions {
 	code: string;
 	redirectUri: string;

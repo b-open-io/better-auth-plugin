@@ -558,6 +558,10 @@ export const sigmaClient = (options: SigmaClientOptions = {}) => {
 							? callbackPath
 							: `${origin}${callbackPath.startsWith("/") ? callbackPath : `/${callbackPath}`}`;
 
+						if (typeof window !== "undefined") {
+							sessionStorage.setItem("sigma_redirect_uri", redirectUri);
+						}
+
 						const params = new URLSearchParams({
 							client_id: signInOptions.clientId,
 							redirect_uri: redirectUri,
@@ -651,6 +655,11 @@ export const sigmaClient = (options: SigmaClientOptions = {}) => {
 								? sessionStorage.getItem("sigma_code_verifier") || undefined
 								: undefined;
 
+						const storedRedirectUri =
+							typeof window !== "undefined"
+								? sessionStorage.getItem("sigma_redirect_uri") || undefined
+								: undefined;
+
 						// Exchange code for tokens via backend API
 						// This must be done server-side because it requires bitcoin-auth signature
 						// IMPORTANT: Use $fetch (Better Auth's fetch wrapper) for proper credential/cookie handling
@@ -661,6 +670,7 @@ export const sigmaClient = (options: SigmaClientOptions = {}) => {
 									code,
 									state,
 									code_verifier: codeVerifier,
+									redirect_uri: storedRedirectUri,
 								},
 							});
 
@@ -717,6 +727,10 @@ export const sigmaClient = (options: SigmaClientOptions = {}) => {
 								if (typeof window !== "undefined") {
 									localStorage.setItem(BAP_ID_STORAGE_KEY, bapId);
 								}
+							}
+
+							if (typeof window !== "undefined") {
+								sessionStorage.removeItem("sigma_redirect_uri");
 							}
 
 							return {

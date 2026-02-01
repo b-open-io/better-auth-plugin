@@ -384,6 +384,36 @@ The callback returns `PayloadCallbackResult`:
 }
 ```
 
+## Convex Integration
+
+For apps using Better Auth with Convex (`@convex-dev/better-auth`), use the server-side plugin instead of the Next.js callback handler. The plugin runs inside Better Auth itself — no local Auth instance needed.
+
+### Setup
+
+```typescript
+// convex/betterAuth.ts
+import { sigmaCallbackPlugin } from "@sigma-auth/better-auth-plugin/server";
+
+export const createAuth = (ctx) => betterAuth({
+  database: authComponent.adapter(ctx),
+  plugins: [
+    convex({ authConfig }),
+    sigmaCallbackPlugin(),  // reads env: SIGMA_MEMBER_PRIVATE_KEY, NEXT_PUBLIC_SIGMA_CLIENT_ID
+  ],
+});
+```
+
+Set environment variables in your Convex deployment:
+
+```bash
+bunx convex env set SIGMA_MEMBER_PRIVATE_KEY "<your-wif-key>"
+bunx convex env set NEXT_PUBLIC_SIGMA_CLIENT_ID "your-app-id"
+```
+
+The plugin registers `POST /sigma/callback` — the existing `sigmaClient()` client plugin works unchanged. The catch-all auth proxy (`app/api/auth/[...all]/route.ts`) forwards the request to Convex where the plugin handles it.
+
+No separate callback route needed — delete `app/api/auth/sigma/callback/route.ts` if you have one.
+
 ## Server Plugin (Auth Provider)
 
 For building your own Sigma Identity server:
