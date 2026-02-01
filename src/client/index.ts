@@ -1,5 +1,5 @@
 import type { BetterFetchOption } from "@better-fetch/fetch";
-import type { BetterAuthClientPlugin } from "better-auth/client";
+import type { AuthQueryAtom, BetterAuthClientPlugin } from "better-auth/client";
 // Import organizationClient from dedicated path for tree-shaking (per Better Auth best practices)
 import { organizationClient } from "better-auth/client/plugins";
 import type {
@@ -504,11 +504,11 @@ export const sigmaClient = (options: SigmaClientOptions = {}) => {
 						// Note: session atom exists at runtime but isn't explicitly typed in ClientStore
 						if ($store && !signInOptions?.forceLogin) {
 							const sessionAtom = (
-								$store as { session?: { get: () => unknown } }
+								$store as { session?: AuthQueryAtom<unknown> }
 							).session;
 							if (sessionAtom) {
 								const currentSession = sessionAtom.get();
-								if (currentSession) {
+								if (currentSession.data) {
 									// Already signed in, return existing session
 									return { data: currentSession, error: null };
 								}

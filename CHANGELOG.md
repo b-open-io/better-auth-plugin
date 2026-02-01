@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.68
+
+### Fixed
+- **Session check blocking OAuth redirect**: The `signIn.sigma()` session check was comparing the raw session atom object (which is always truthy as `{ data: null, isPending: true, ... }`) instead of checking `atom.data`. Unauthenticated users were short-circuited before reaching the OAuth redirect. Now correctly checks `currentSession.data` which is `null` when no session exists.
+
 ## 0.0.66
 
 ### Fixed
