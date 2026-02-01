@@ -19,6 +19,7 @@ interface ProjectReport {
 	existingAuth: {
 		hasAuthClient: boolean;
 		hasCallbackRoute: boolean;
+		hasCatchAllRoute: boolean;
 		hasSigmaPlugin: boolean;
 	};
 	dependencies: {
@@ -131,6 +132,7 @@ async function detectExistingAuth(projectDir: string, dirs: ProjectReport["direc
 	const result = {
 		hasAuthClient: false,
 		hasCallbackRoute: false,
+		hasCatchAllRoute: false,
 		hasSigmaPlugin: false,
 	};
 
@@ -144,18 +146,18 @@ async function detectExistingAuth(projectDir: string, dirs: ProjectReport["direc
 
 	for (const loc of authLocations) {
 		if (await fileExists(loc)) {
-			result.hasAuthClient = true;
-			try {
-				const content = await fs.readFile(loc, "utf-8");
-				if (content.includes("sigma") || content.includes("Sigma")) {
-					result.hasSigmaPlugin = true;
-				}
-			} catch {}
-			break;
+				result.hasAuthClient = true;
+				try {
+					const content = await fs.readFile(loc, "utf-8");
+					if (content.includes("sigmaCallbackPlugin")) {
+						result.hasSigmaPlugin = true;
+					}
+				} catch {}
+				break;
 		}
 	}
 
-	// Check for callback route
+	// Check for manual callback route
 	const callbackLocations = [
 		path.join(projectDir, "app/auth/sigma/callback/page.tsx"),
 		path.join(projectDir, "app/api/auth/sigma/callback/route.ts"),
@@ -167,6 +169,21 @@ async function detectExistingAuth(projectDir: string, dirs: ProjectReport["direc
 	for (const loc of callbackLocations) {
 		if (await fileExists(loc)) {
 			result.hasCallbackRoute = true;
+			break;
+		}
+	}
+
+	// Check for Better Auth catch-all route
+	const catchAllLocations = [
+		path.join(projectDir, "app/api/auth/[...all]/route.ts"),
+		path.join(projectDir, "src/app/api/auth/[...all]/route.ts"),
+		path.join(projectDir, "pages/api/auth/[...all].ts"),
+		path.join(projectDir, "src/pages/api/auth/[...all].ts"),
+	];
+
+	for (const loc of catchAllLocations) {
+		if (await fileExists(loc)) {
+			result.hasCatchAllRoute = true;
 			break;
 		}
 	}
@@ -210,11 +227,20 @@ function generateRecommendations(report: Omit<ProjectReport, "recommendations">)
 		recommendations.push(`Create auth client at ${libDir}/auth.ts`);
 	}
 
-	if (!report.existingAuth.hasCallbackRoute) {
+	// Logic for callback route recommendation:
+	// 1. If explicit callback route exists -> Good.
+	// 2. If catch-all exists AND sigmaCallbackPlugin is configured -> Good (handled by plugin).
+	// 3. Otherwise -> Recommend configuration.
+	const isConfiguredViaPlugin = report.existingAuth.hasCatchAllRoute && report.existingAuth.hasSigmaPlugin;
+	
+	if (!report.existingAuth.hasCallbackRoute && !isConfiguredViaPlugin) {
 		if (report.framework === "nextjs-app") {
 			const appDir = report.directories.app || "app";
-			recommendations.push(`Create callback page at ${appDir}/auth/sigma/callback/page.tsx`);
-			recommendations.push(`Create API route at ${appDir}/api/auth/sigma/callback/route.ts`);
+			if (report.existingAuth.hasCatchAllRoute) {
+				recommendations.push("Add `sigmaCallbackPlugin` to your Better Auth config in `lib/auth.ts` to handle callbacks automatically.");
+			} else {
+				recommendations.push(`Create API route at ${appDir}/api/auth/[...all]/route.ts (recommended) OR ${appDir}/api/auth/sigma/callback/route.ts`);
+			}
 		} else if (report.framework === "nextjs-pages") {
 			recommendations.push("Create callback API at pages/api/auth/callback/sigma.ts");
 		}

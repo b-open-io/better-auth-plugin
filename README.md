@@ -100,7 +100,12 @@ The client redirects to `/oauth2/authorize` (custom gate) instead of `/api/auth/
 
 This makes Bitcoin identity the foundation of authentication.
 
-## Quick Start (OAuth Client)
+## Choose Your Integration Mode
+
+- **Mode A — OAuth client (cross-domain):** Your app is not the auth server. You handle tokens locally.
+- **Mode B — Same-domain Better Auth server:** You run Better Auth (or proxy to Convex) on your domain and can use sessions.
+
+## Quick Start (Mode A: OAuth Client)
 
 This is the standard setup for apps authenticating with Sigma Identity.
 
@@ -270,7 +275,27 @@ const isAdmin = user?.bap?.idKey === process.env.ADMIN_BAP_ID;
 
 ## Alternative: Same-Domain Setup
 
-If you run your own Better Auth server on the **same domain** as your app, you can use session cookies and the `useSession` hook:
+If you run your own Better Auth server on the **same domain** as your app, you can use session cookies and the `useSession` hook. You still need the OAuth callback page (above) to handle the redirect.
+
+### Server Setup (Next.js)
+
+```typescript
+// lib/auth.ts
+import { betterAuth } from "better-auth";
+import { sigmaCallbackPlugin } from "@sigma-auth/better-auth-plugin/server";
+
+export const auth = betterAuth({
+  plugins: [sigmaCallbackPlugin()],
+});
+```
+
+```typescript
+// app/api/auth/[...all]/route.ts
+import { toNextJsHandler } from "better-auth/next-js";
+import { auth } from "@/lib/auth";
+
+export const { GET, POST } = toNextJsHandler(auth);
+```
 
 ```typescript
 // lib/auth.ts
@@ -285,7 +310,7 @@ export const { useSession } = authClient;
 const { data: session } = useSession();
 ```
 
-This requires setting up Better Auth server with the Sigma provider plugin on your domain.
+This requires setting up Better Auth server with the `sigmaCallbackPlugin` on your domain.
 
 ## Payload CMS Integration
 
@@ -392,9 +417,19 @@ For apps using Better Auth with Convex (`@convex-dev/better-auth`), use the serv
 
 ```typescript
 // convex/betterAuth.ts
+import { betterAuth } from "better-auth/minimal";
+import { createClient, type GenericCtx } from "@convex-dev/better-auth";
+import { convex } from "@convex-dev/better-auth/plugins";
 import { sigmaCallbackPlugin } from "@sigma-auth/better-auth-plugin/server";
+import { components } from "./_generated/api";
+import type { DataModel } from "./_generated/dataModel";
+import authConfig from "./auth.config";
 
-export const createAuth = (ctx) => betterAuth({
+export const authComponent = createClient<DataModel>(components.betterAuth);
+
+export const createAuth = (ctx: GenericCtx<DataModel>) => betterAuth({
+  baseURL: process.env.SITE_URL,
+  secret: process.env.BETTER_AUTH_SECRET,
   database: authComponent.adapter(ctx),
   plugins: [
     convex({ authConfig }),
@@ -406,8 +441,36 @@ export const createAuth = (ctx) => betterAuth({
 Set environment variables in your Convex deployment:
 
 ```bash
+SITE_URL="https://your-site-url"
+BETTER_AUTH_SECRET="your-random-secret"
 bunx convex env set SIGMA_MEMBER_PRIVATE_KEY "<your-wif-key>"
 bunx convex env set NEXT_PUBLIC_SIGMA_CLIENT_ID "your-app-id"
+```
+
+Set these in your Next.js app `.env.local`:
+
+```bash
+NEXT_PUBLIC_CONVEX_URL="https://your-deployment.convex.cloud"
+NEXT_PUBLIC_CONVEX_SITE_URL="https://your-site-url"
+```
+
+In your Next.js app, proxy `/api/auth/*` to Convex:
+
+```typescript
+// lib/auth-server.ts
+import { convexBetterAuthNextJs } from "@convex-dev/better-auth/nextjs";
+
+export const { handler } = convexBetterAuthNextJs({
+  convexUrl: process.env.NEXT_PUBLIC_CONVEX_URL!,
+  convexSiteUrl: process.env.NEXT_PUBLIC_CONVEX_SITE_URL!,
+});
+```
+
+```typescript
+// app/api/auth/[...all]/route.ts
+import { handler } from "@/lib/auth-server";
+
+export const { GET, POST } = handler;
 ```
 
 The plugin registers `POST /sigma/callback` — the existing `sigmaClient()` client plugin works unchanged. The catch-all auth proxy (`app/api/auth/[...all]/route.ts`) forwards the request to Convex where the plugin handles it.
