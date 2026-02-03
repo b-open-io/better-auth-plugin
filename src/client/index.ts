@@ -687,9 +687,9 @@ export const sigmaClient = (options: SigmaClientOptions = {}) => {
 								if (!response.ok) {
 									const errorData = await response.json().catch(() => ({}));
 									throw {
-										title: errorData.title || "Token Exchange Failed",
+										title: errorData.error || "Token Exchange Failed",
 										message:
-											errorData.message || `Server returned ${response.status}`,
+											errorData.details || `Server returned ${response.status}`,
 									} as OAuthCallbackError;
 								}
 
@@ -768,6 +768,7 @@ export const sigmaClient = (options: SigmaClientOptions = {}) => {
 
 							if (typeof window !== "undefined") {
 								sessionStorage.removeItem("sigma_redirect_uri");
+								sessionStorage.removeItem("sigma_code_verifier");
 							}
 
 							return {

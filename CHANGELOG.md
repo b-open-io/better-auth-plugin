@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.70
+
+### Fixed
+- **Error format in handleCallback**: Updated error response parsing to use `error`/`details` keys instead of `title`/`message` to match the API route response format
+- **PKCE code_verifier cleanup**: Added cleanup for `sigma_code_verifier` from sessionStorage after successful OAuth authentication to prevent stale data
+
 ## 0.0.69
 
 ### Fixed
