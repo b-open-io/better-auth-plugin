@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.0.69
+
+### Fixed
+- **handleCallback auto-detects cross-domain mode**: Fixed handleCallback to auto-detect cross-domain mode (Mode A vs Mode B)
+  - Mode A (cross-domain): Routes to local API route to avoid CORS
+  - Mode B (same-domain): Uses Better Auth $fetch for same-domain BA server
+  - Plugin now works with simple handleCallback() in both modes
+
 ## 0.0.68
 
 ### Fixed
