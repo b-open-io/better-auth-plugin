@@ -660,65 +660,102 @@ export const sigmaClient = (options: SigmaClientOptions = {}) => {
 								? sessionStorage.getItem("sigma_redirect_uri") || undefined
 								: undefined;
 
-						// Exchange code for tokens via backend API
-						// This must be done server-side because it requires bitcoin-auth signature
-						// IMPORTANT: Use $fetch (Better Auth's fetch wrapper) for proper credential/cookie handling
+						// Detect if we're in cross-domain mode (Mode A)
+						// Cross-domain: auth server is external (e.g., auth.sigmaidentity.com), need to proxy through local API
+						// Same-domain: auth server is on same domain, can use $fetch directly
+						const isCrossDomain =
+							typeof window !== "undefined" &&
+							!getSigmaUrl().includes(window.location.host);
+
 						try {
-							const res = await $fetch<OAuthCallbackResult>("/sigma/callback", {
-								method: "POST",
-								body: {
-									code,
-									state,
-									code_verifier: codeVerifier,
-									redirect_uri: storedRedirectUri,
-								},
-							});
+							let data: OAuthCallbackResult;
 
-							if (res.error) {
-								let errorMessage =
-									"Failed to exchange authorization code for access token.";
-								let errorTitle = "Token Exchange Failed";
+							if (isCrossDomain) {
+								// Mode A: Cross-domain OAuth - proxy through local API route
+								// This avoids CORS by having the server do the token exchange
+								const response = await fetch("/api/auth/sigma/callback", {
+									method: "POST",
+									headers: { "Content-Type": "application/json" },
+									body: JSON.stringify({
+										code,
+										state,
+										code_verifier: codeVerifier,
+										redirect_uri: storedRedirectUri,
+									}),
+								});
 
-								const errorData = res.error as {
-									endpoint?: string;
-									status?: number;
-									details?: string;
-									error?: string;
-								};
-								const endpoint = errorData.endpoint || "unknown";
-								const status = errorData.status || 500;
-
-								// Parse nested error details if present
-								if (errorData.details) {
-									try {
-										const nestedError = JSON.parse(errorData.details) as {
-											error_description?: string;
-											error?: string;
-										};
-										if (nestedError.error_description) {
-											errorMessage = nestedError.error_description;
-										}
-										if (nestedError.error === "invalid_client") {
-											errorTitle = "Platform Not Registered";
-											errorMessage =
-												"This platform is not registered with the authentication server.";
-										}
-									} catch {
-										errorMessage = errorData.details;
-									}
-								} else if (errorData.error) {
-									errorMessage = errorData.error;
+								if (!response.ok) {
+									const errorData = await response.json().catch(() => ({}));
+									throw {
+										title: errorData.title || "Token Exchange Failed",
+										message:
+											errorData.message || `Server returned ${response.status}`,
+									} as OAuthCallbackError;
 								}
 
-								errorMessage += `\n\nBackend: ${status} (${endpoint})`;
+								data = await response.json();
+							} else {
+								// Mode B: Same-domain - use Better Auth's $fetch
+								// This works when BA server is on same domain
+								const res = await $fetch<OAuthCallbackResult>(
+									"/sigma/callback",
+									{
+										method: "POST",
+										body: {
+											code,
+											state,
+											code_verifier: codeVerifier,
+											redirect_uri: storedRedirectUri,
+										},
+									},
+								);
 
-								throw {
-									title: errorTitle,
-									message: errorMessage,
-								} as OAuthCallbackError;
+								if (res.error) {
+									let errorMessage =
+										"Failed to exchange authorization code for access token.";
+									let errorTitle = "Token Exchange Failed";
+
+									const errorData = res.error as {
+										endpoint?: string;
+										status?: number;
+										details?: string;
+										error?: string;
+									};
+									const endpoint = errorData.endpoint || "unknown";
+									const status = errorData.status || 500;
+
+									// Parse nested error details if present
+									if (errorData.details) {
+										try {
+											const nestedError = JSON.parse(errorData.details) as {
+												error_description?: string;
+												error?: string;
+											};
+											if (nestedError.error_description) {
+												errorMessage = nestedError.error_description;
+											}
+											if (nestedError.error === "invalid_client") {
+												errorTitle = "Platform Not Registered";
+												errorMessage =
+													"This platform is not registered with the authentication server.";
+											}
+										} catch {
+											errorMessage = errorData.details;
+										}
+									} else if (errorData.error) {
+										errorMessage = errorData.error;
+									}
+
+									errorMessage += `\n\nBackend: ${status} (${endpoint})`;
+
+									throw {
+										title: errorTitle,
+										message: errorMessage,
+									} as OAuthCallbackError;
+								}
+
+								data = res.data as OAuthCallbackResult;
 							}
-
-							const data = res.data as OAuthCallbackResult;
 
 							// Store bapId from user data for signing (from bap_id claim)
 							const bapId = data.user?.bap_id;
