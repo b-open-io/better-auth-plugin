@@ -1,116 +1,116 @@
 {
-  "name": "@sigma-auth/better-auth-plugin",
-  "version": "0.0.71",
-  "description": "Better Auth plugins for Sigma Identity - client, server, and provider integrations",
-  "type": "module",
-  "main": "./dist/types/index.js",
-  "types": "./dist/types/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/types/index.d.ts",
-      "import": "./dist/types/index.js"
-    },
-    "./client": {
-      "types": "./dist/client/index.d.ts",
-      "import": "./dist/client/index.js"
-    },
-    "./client/local": {
-      "types": "./dist/client/local-signer.d.ts",
-      "import": "./dist/client/local-signer.js"
-    },
-    "./client/sync": {
-      "types": "./dist/client/sync.d.ts",
-      "import": "./dist/client/sync.js"
-    },
-    "./server": {
-      "types": "./dist/server/index.d.ts",
-      "import": "./dist/server/index.js"
-    },
-    "./server/local": {
-      "types": "./dist/server/local.d.ts",
-      "import": "./dist/server/local.js"
-    },
-    "./next": {
-      "types": "./dist/next/index.d.ts",
-      "import": "./dist/next/index.js"
-    },
-    "./payload": {
-      "types": "./dist/payload/index.d.ts",
-      "import": "./dist/payload/index.js"
-    },
-    "./provider": {
-      "types": "./dist/provider/index.d.ts",
-      "import": "./dist/provider/index.js"
-    }
-  },
-  "files": [
-    "dist",
-    "README.md"
-  ],
-  "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch",
-    "clean": "rm -rf dist",
-    "lint": "biome check .",
-    "lint:fix": "biome check --write .",
-    "lint:unsafe": "biome check --write --unsafe .",
-    "prepublishOnly": "bun run lint && bun run clean && bun run build"
-  },
-  "keywords": [
-    "better-auth",
-    "bitcoin",
-    "oauth",
-    "sigma-identity",
-    "bap",
-    "authentication"
-  ],
-  "author": "Sigma Identity",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/b-open-io/better-auth-plugin.git"
-  },
-  "bugs": {
-    "url": "https://github.com/b-open-io/better-auth-plugin/issues"
-  },
-  "homepage": "https://sigmaidentity.com/docs/setup/client-plugin",
-  "peerDependencies": {
-    "better-auth": "^1.4.5",
-    "@bsv/sdk": "^1.9.9",
-    "@neondatabase/serverless": "^1.0.2",
-    "bsv-bap": "^0.1.16",
-    "payload-auth": "^0.6.0",
-    "zod": "^4.1.12"
-  },
-  "peerDependenciesMeta": {
-    "@bsv/sdk": {
-      "optional": true
-    },
-    "@neondatabase/serverless": {
-      "optional": true
-    },
-    "bsv-bap": {
-      "optional": true
-    },
-    "payload-auth": {
-      "optional": true
-    },
-    "zod": {
-      "optional": true
-    }
-  },
-  "dependencies": {
-    "bitcoin-auth": "^0.0.5"
-  },
-  "devDependencies": {
-    "@better-fetch/fetch": "^1.1.21",
-    "@biomejs/biome": "^2.3.11",
-    "@bsv/sdk": "^1.10.1",
-    "@neondatabase/serverless": "^1.0.2",
-    "@types/node": "^24.10.7",
-    "better-auth": "^1.4.10",
-    "bsv-bap": "^0.1.16",
-    "typescript": "^5.9.3",
-    "zod": "^4.3.5"
-  }
+	"name": "@sigma-auth/better-auth-plugin",
+	"version": "0.0.71",
+	"description": "Better Auth plugins for Sigma Identity - client, server, and provider integrations",
+	"type": "module",
+	"main": "./dist/types/index.js",
+	"types": "./dist/types/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/types/index.d.ts",
+			"import": "./dist/types/index.js"
+		},
+		"./client": {
+			"types": "./dist/client/index.d.ts",
+			"import": "./dist/client/index.js"
+		},
+		"./client/local": {
+			"types": "./dist/client/local-signer.d.ts",
+			"import": "./dist/client/local-signer.js"
+		},
+		"./client/sync": {
+			"types": "./dist/client/sync.d.ts",
+			"import": "./dist/client/sync.js"
+		},
+		"./server": {
+			"types": "./dist/server/index.d.ts",
+			"import": "./dist/server/index.js"
+		},
+		"./server/local": {
+			"types": "./dist/server/local.d.ts",
+			"import": "./dist/server/local.js"
+		},
+		"./next": {
+			"types": "./dist/next/index.d.ts",
+			"import": "./dist/next/index.js"
+		},
+		"./payload": {
+			"types": "./dist/payload/index.d.ts",
+			"import": "./dist/payload/index.js"
+		},
+		"./provider": {
+			"types": "./dist/provider/index.d.ts",
+			"import": "./dist/provider/index.js"
+		}
+	},
+	"files": [
+		"dist",
+		"README.md"
+	],
+	"scripts": {
+		"build": "tsc",
+		"dev": "tsc --watch",
+		"clean": "rm -rf dist",
+		"lint": "biome check .",
+		"lint:fix": "biome check --write .",
+		"lint:unsafe": "biome check --write --unsafe .",
+		"prepublishOnly": "bun run lint && bun run clean && bun run build"
+	},
+	"keywords": [
+		"better-auth",
+		"bitcoin",
+		"oauth",
+		"sigma-identity",
+		"bap",
+		"authentication"
+	],
+	"author": "Sigma Identity",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/b-open-io/better-auth-plugin.git"
+	},
+	"bugs": {
+		"url": "https://github.com/b-open-io/better-auth-plugin/issues"
+	},
+	"homepage": "https://sigmaidentity.com/docs/setup/client-plugin",
+	"peerDependencies": {
+		"better-auth": "^1.4.5",
+		"@bsv/sdk": "^1.9.9",
+		"@neondatabase/serverless": "^1.0.2",
+		"bsv-bap": "^0.1.16",
+		"payload-auth": "^0.6.0",
+		"zod": "^4.1.12"
+	},
+	"peerDependenciesMeta": {
+		"@bsv/sdk": {
+			"optional": true
+		},
+		"@neondatabase/serverless": {
+			"optional": true
+		},
+		"bsv-bap": {
+			"optional": true
+		},
+		"payload-auth": {
+			"optional": true
+		},
+		"zod": {
+			"optional": true
+		}
+	},
+	"dependencies": {
+		"bitcoin-auth": "^0.0.5"
+	},
+	"devDependencies": {
+		"@better-fetch/fetch": "^1.1.21",
+		"@biomejs/biome": "^2.3.11",
+		"@bsv/sdk": "^1.10.1",
+		"@neondatabase/serverless": "^1.0.2",
+		"@types/node": "^24.10.7",
+		"better-auth": "^1.4.10",
+		"bsv-bap": "^0.1.16",
+		"typescript": "^5.9.3",
+		"zod": "^4.3.5"
+	}
 }
