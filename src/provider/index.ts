@@ -6,7 +6,6 @@ import type { BetterAuthPlugin, User } from "better-auth";
 import {
 	APIError,
 	createAuthEndpoint,
-	getSessionFromCtx,
 	sessionMiddleware,
 } from "better-auth/api";
 import { setSessionCookie } from "better-auth/cookies";
@@ -616,101 +615,6 @@ export const sigmaProvider = (
 							error: "unsupported_grant_type",
 							error_description: `Unsupported grant_type: ${grantType}`,
 						});
-					}),
-				},
-				// OAuth authorize endpoint pre-validation
-				// Validates client_id and redirect_uri BEFORE user is prompted to unlock wallet
-				{
-					matcher: (ctx) => ctx.path === "/oauth2/authorize",
-					handler: createAuthMiddleware(async (ctx) => {
-						// Check if user already has session - if yes, skip validation
-						const session = await getSessionFromCtx(ctx);
-						if (session) {
-							return; // User is authenticated, let Better Auth handle it
-						}
-
-						// No session - validate OAuth params before prompting for auth
-						const clientId = ctx.query?.client_id as string | undefined;
-						const redirectUri = ctx.query?.redirect_uri as string | undefined;
-
-						// Build debug info
-						const queryParams: Record<string, string> = {};
-						if (ctx.query) {
-							Object.entries(ctx.query).forEach(([key, value]) => {
-								if (typeof value === "string") {
-									queryParams[key] = value;
-								}
-							});
-						}
-
-						// Validate client_id
-						if (!clientId) {
-							const debugInfo = {
-								clientId: null,
-								redirectUri: redirectUri || null,
-								errorType: "missing_client_id",
-								timestamp: new Date().toISOString(),
-								queryParams,
-							};
-							// Return redirect directly - don't throw so Better Auth doesn't intercept
-							return ctx.redirect(
-								`/error/oauth?error=invalid_request&error_description=${encodeURIComponent("Missing required parameter: client_id")}&debug=${encodeURIComponent(JSON.stringify(debugInfo))}`,
-							);
-						}
-
-						// Fetch client and validate
-						const clients = await ctx.context.adapter.findMany({
-							model: "oauthClient",
-							where: [{ field: "clientId", value: clientId }],
-						});
-
-						if (clients.length === 0) {
-							const debugInfo = {
-								clientId,
-								redirectUri: redirectUri || null,
-								errorType: "client_not_found",
-								timestamp: new Date().toISOString(),
-								queryParams,
-							};
-							// Return redirect directly - don't throw so Better Auth doesn't intercept
-							return ctx.redirect(
-								`/error/oauth?error=invalid_client&error_description=${encodeURIComponent("The OAuth client is not registered")}&debug=${encodeURIComponent(JSON.stringify(debugInfo))}`,
-							);
-						}
-
-						const client = clients[0] as OAuthClient;
-						const registeredUris = client.redirectUris || [];
-						const normalizedUris = Array.isArray(registeredUris)
-							? registeredUris
-							: [registeredUris].filter(Boolean);
-
-						// Validate redirect_uri
-						if (redirectUri) {
-							const isValid = normalizedUris.some(
-								(uri: string) =>
-									uri === redirectUri ||
-									uri === redirectUri.replace(/\/$/, "") ||
-									redirectUri === uri.replace(/\/$/, ""),
-							);
-
-							if (!isValid) {
-								const debugInfo = {
-									clientId,
-									redirectUri,
-									registeredUris: normalizedUris,
-									errorType: "invalid_redirect_uri",
-									timestamp: new Date().toISOString(),
-									queryParams,
-								};
-								// Return redirect directly - don't throw so Better Auth doesn't intercept
-								return ctx.redirect(
-									`/error/oauth?error=invalid_redirect_uri&error_description=${encodeURIComponent(`The redirect URI "${redirectUri}" is not registered for this client`)}&debug=${encodeURIComponent(JSON.stringify(debugInfo))}`,
-								);
-							}
-						}
-
-						// All validations passed - let Better Auth continue
-						// (Better Auth will redirect to loginPage since no session)
 					}),
 				},
 			],
