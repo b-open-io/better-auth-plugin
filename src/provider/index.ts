@@ -6,6 +6,7 @@ import type { BetterAuthPlugin, User } from "better-auth";
 import {
 	APIError,
 	createAuthEndpoint,
+	getSessionFromCtx,
 	sessionMiddleware,
 } from "better-auth/api";
 import { setSessionCookie } from "better-auth/cookies";
@@ -23,7 +24,7 @@ import { z } from "zod";
  */
 const hashToken = async (token: string): Promise<string> => {
 	const hash = await createHash("SHA-256").digest(
-		new TextEncoder().encode(token),
+		new TextEncoder().encode(token)
 	);
 	return base64Url.encode(new Uint8Array(hash), { padding: false });
 };
@@ -56,12 +57,28 @@ function createDebugLogger(enabled: boolean): DebugLogger {
 }
 
 /**
- * OAuth client type with Sigma fields
- * Now uses direct columns instead of metadata JSON blob
+ * Base OAuth client from Better Auth oauth-provider plugin
  */
-interface OAuthClient {
+interface BaseOAuthClient {
 	clientId: string;
+	redirectUris: string[];
+	name: string;
+	uri?: string;
+	icon?: string;
+	logoUri?: string;
+	tosUri?: string;
+	policyUri?: string;
+	contacts?: string;
+	public: boolean;
+	disabled?: boolean;
+}
+
+/**
+ * OAuth client with Sigma-specific extensions
+ */
+interface OAuthClient extends BaseOAuthClient {
 	memberPubkey?: string; // Direct column for signature verification
+	ownerBapId: string; // BAP ID of the client owner
 }
 
 /**
@@ -81,7 +98,7 @@ export interface SigmaProviderOptions {
 		pool: Pool,
 		userId: string,
 		pubkey: string,
-		register: boolean,
+		register: boolean
 	) => Promise<string | null>;
 
 	/**
@@ -100,7 +117,7 @@ export interface SigmaProviderOptions {
 		set: (
 			key: string,
 			value: unknown,
-			options?: { ex?: number },
+			options?: { ex?: number }
 		) => Promise<void>;
 		delete?: (key: string) => Promise<void>;
 	};
@@ -193,7 +210,7 @@ export type { OrganizationOptions };
  * ```
  */
 export const sigmaProvider = (
-	options?: SigmaProviderOptions,
+	options?: SigmaProviderOptions
 ): BetterAuthPlugin => {
 	const debug = createDebugLogger(options?.debug ?? false);
 
@@ -311,13 +328,13 @@ export const sigmaProvider = (
 							// referenceId is the BAP ID (set via postLogin.consentReferenceId from activeOrganizationId)
 							if (!referenceId) {
 								debug.log(
-									"No referenceId (BAP ID) in token, skipping profile update",
+									"No referenceId (BAP ID) in token, skipping profile update"
 								);
 								return;
 							}
 
 							debug.log(
-								`Found BAP ID in token referenceId: user=${userId.substring(0, 15)}... bap=${referenceId.substring(0, 15)}...`,
+								`Found BAP ID in token referenceId: user=${userId.substring(0, 15)}... bap=${referenceId.substring(0, 15)}...`
 							);
 
 							// Update user record with selected identity's profile data
@@ -331,7 +348,7 @@ export const sigmaProvider = (
 								member_pubkey: string | null;
 							}>(
 								"SELECT bap_id, name, image, member_pubkey FROM profile WHERE bap_id = $1 AND user_id = $2 LIMIT 1",
-								[referenceId, userId],
+								[referenceId, userId]
 							);
 
 							const profile = profileResult.rows[0];
@@ -349,7 +366,7 @@ export const sigmaProvider = (
 										updatedAt: new Date(),
 									},
 								});
-								debug.log(`Updated user profile from BAP identity`);
+								debug.log("Updated user profile from BAP identity");
 							}
 						} catch (error) {
 							debug.error("Error updating user profile from identity:", error);
@@ -463,7 +480,7 @@ export const sigmaProvider = (
 							}
 
 							debug.log(
-								`Client authenticated via Bitcoin signature (clientId: ${clientId})`,
+								`Client authenticated via Bitcoin signature (clientId: ${clientId})`
 							);
 
 							// Inject client_id into request body for Better Auth to process
@@ -577,7 +594,7 @@ export const sigmaProvider = (
 							}
 
 							debug.log(
-								`Token refresh: client authenticated via Bitcoin signature (clientId: ${clientId})`,
+								`Token refresh: client authenticated via Bitcoin signature (clientId: ${clientId})`
 							);
 
 							// Inject client_id into request body for Better Auth to process
@@ -599,6 +616,98 @@ export const sigmaProvider = (
 							error: "unsupported_grant_type",
 							error_description: `Unsupported grant_type: ${grantType}`,
 						});
+					}),
+				},
+				// OAuth authorize endpoint pre-validation
+				// Validates client_id and redirect_uri BEFORE user is prompted to unlock wallet
+				{
+					matcher: (ctx) => ctx.path === "/oauth2/authorize",
+					handler: createAuthMiddleware(async (ctx) => {
+						// Check if user already has session - if yes, skip validation
+						const session = await getSessionFromCtx(ctx);
+						if (session) {
+							return; // User is authenticated, let Better Auth handle it
+						}
+
+						// No session - validate OAuth params before prompting for auth
+						const clientId = ctx.query?.client_id as string | undefined;
+						const redirectUri = ctx.query?.redirect_uri as string | undefined;
+
+						// Build debug info
+						const queryParams: Record<string, string> = {};
+						if (ctx.query) {
+							Object.entries(ctx.query).forEach(([key, value]) => {
+								if (typeof value === "string") {
+									queryParams[key] = value;
+								}
+							});
+						}
+
+						// Validate client_id
+						if (!clientId) {
+							const debugInfo = {
+								clientId: null,
+								redirectUri: redirectUri || null,
+								errorType: "missing_client_id",
+								timestamp: new Date().toISOString(),
+								queryParams,
+							};
+							throw ctx.redirect(
+								`/error/oauth?error=invalid_request&error_description=${encodeURIComponent("Missing required parameter: client_id")}&debug=${encodeURIComponent(JSON.stringify(debugInfo))}`
+							);
+						}
+
+						// Fetch client and validate
+						const clients = await ctx.context.adapter.findMany({
+							model: "oauthClient",
+							where: [{ field: "clientId", value: clientId }],
+						});
+
+						if (clients.length === 0) {
+							const debugInfo = {
+								clientId,
+								redirectUri: redirectUri || null,
+								errorType: "client_not_found",
+								timestamp: new Date().toISOString(),
+								queryParams,
+							};
+							throw ctx.redirect(
+								`/error/oauth?error=invalid_client&error_description=${encodeURIComponent("The OAuth client is not registered")}&debug=${encodeURIComponent(JSON.stringify(debugInfo))}`
+							);
+						}
+
+						const client = clients[0] as OAuthClient;
+						const registeredUris = client.redirectUris || [];
+						const normalizedUris = Array.isArray(registeredUris)
+							? registeredUris
+							: [registeredUris].filter(Boolean);
+
+						// Validate redirect_uri
+						if (redirectUri) {
+							const isValid = normalizedUris.some(
+								(uri: string) =>
+									uri === redirectUri ||
+									uri === redirectUri.replace(/\/$/, "") ||
+									redirectUri === uri.replace(/\/$/, "")
+							);
+
+							if (!isValid) {
+								const debugInfo = {
+									clientId,
+									redirectUri,
+									registeredUris: normalizedUris,
+									errorType: "invalid_redirect_uri",
+									timestamp: new Date().toISOString(),
+									queryParams,
+								};
+								throw ctx.redirect(
+									`/error/oauth?error=invalid_redirect_uri&error_description=${encodeURIComponent(`The redirect URI "${redirectUri}" is not registered for this client`)}&debug=${encodeURIComponent(JSON.stringify(debugInfo))}`
+								);
+							}
+						}
+
+						// All validations passed - let Better Auth continue
+						// (Better Auth will redirect to loginPage since no session)
 					}),
 				},
 			],
@@ -644,7 +753,7 @@ export const sigmaProvider = (
 
 						debug.warn(
 							"DEPRECATED: storeConsentBapId endpoint called. " +
-								"Use organization.setActive() + oauth2Continue({ postLogin: true }) instead.",
+								"Use organization.setActive() + oauth2Continue({ postLogin: true }) instead."
 						);
 
 						return ctx.json({ success: true });
@@ -654,7 +763,7 @@ export const sigmaProvider = (
 							message: "Failed to store identity selection",
 						});
 					}
-				},
+				}
 			),
 
 			signInSigma: createAuthEndpoint(
@@ -664,7 +773,7 @@ export const sigmaProvider = (
 					body: z.optional(
 						z.object({
 							bapId: z.string().optional(),
-						}),
+						})
 					),
 				},
 				async (ctx) => {
@@ -734,7 +843,7 @@ export const sigmaProvider = (
 						// Use pool.query() directly to avoid connect/release pattern
 						const profileResult = await pool.query<{ user_id: string }>(
 							"SELECT user_id FROM profile WHERE member_pubkey = $1 LIMIT 1",
-							[pubkey],
+							[pubkey]
 						);
 
 						const profileRow = profileResult.rows[0];
@@ -799,12 +908,12 @@ export const sigmaProvider = (
 							pool,
 							user.id,
 							pubkey,
-							true,
+							true
 						);
 
 						if (bapId) {
 							debug.log(
-								`BAP ID resolved and registered: ${bapId.substring(0, 20)}...`,
+								`BAP ID resolved and registered: ${bapId.substring(0, 20)}...`
 							);
 
 							// Update user record with profile data from profile table
@@ -828,7 +937,7 @@ export const sigmaProvider = (
 									member_pubkey: string | null;
 								}>(
 									"SELECT bap_id, name, image, member_pubkey FROM profile WHERE bap_id = $1 AND user_id = $2 LIMIT 1",
-									[selectedBapId, user.id],
+									[selectedBapId, user.id]
 								);
 							} else {
 								// Query for primary profile
@@ -839,7 +948,7 @@ export const sigmaProvider = (
 									member_pubkey: string | null;
 								}>(
 									"SELECT bap_id, name, image, member_pubkey FROM profile WHERE user_id = $1 AND is_primary = true LIMIT 1",
-									[user.id],
+									[user.id]
 								);
 							}
 
@@ -874,7 +983,7 @@ export const sigmaProvider = (
 
 					// Create session
 					const session = await ctx.context.internalAdapter.createSession(
-						user.id,
+						user.id
 					);
 
 					if (!session) {
@@ -894,7 +1003,7 @@ export const sigmaProvider = (
 							name: user.name,
 						},
 					});
-				},
+				}
 			),
 		},
 	};
