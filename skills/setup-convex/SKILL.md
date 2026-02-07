@@ -156,6 +156,34 @@ export const { GET, POST } = handler;
 
 In your Next.js app, proxy `/api/auth/*` to Convex (see `@convex-dev/better-auth` docs). The Sigma plugin endpoint is `/api/auth/sigma/callback` when proxied.
 
+## Troubleshooting
+
+### 403 on Token Exchange (CSRF / trustedOrigins)
+
+**Symptom**: OAuth flow succeeds but callback returns "Token Exchange Failed - Server returned 403". Better Auth logs: `Invalid origin: https://your-preview-url.vercel.app`
+
+**Root Cause**: Better Auth's CSRF protection rejects POST requests from origins not in `trustedOrigins`. This is common on Vercel preview deployments with dynamic URLs.
+
+**Fix**: If your Next.js frontend proxies to Convex, add Vercel's auto-set env vars to your Better Auth config's `trustedOrigins`. Vercel automatically sets `VERCEL_URL` and `VERCEL_BRANCH_URL` (without protocol prefix) on every deployment:
+
+```typescript
+trustedOrigins: [
+  "https://your-production-domain.com",
+  process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "",
+  process.env.VERCEL_BRANCH_URL ? `https://${process.env.VERCEL_BRANCH_URL}` : "",
+  "http://localhost:3000",
+].filter(Boolean),
+```
+
+**Important**: This is a Better Auth configuration issue, not a Sigma plugin issue. The OAuth flow itself works correctly; the 403 happens on the local POST that exchanges the authorization code for tokens.
+
+### Callback URL Mismatch
+
+Ensure your callback URL is registered in Sigma for every domain you deploy to:
+- `http://localhost:3000/auth/sigma/callback` (local dev)
+- `https://your-domain.com/auth/sigma/callback` (production)
+- Vercel preview URLs as needed
+
 ## Security
 
 - **Private Key**: The `SIGMA_MEMBER_PRIVATE_KEY` is critical for signing token exchange requests. Ensure it is stored securely in Convex environment variables and never exposed to the client.

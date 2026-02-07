@@ -264,6 +264,8 @@ fetch(url + requestPath, {
 
 When working with Sigma Auth (auth.sigmaidentity.com), common patterns:
 
+**Better Auth / Sigma Plugin issues** (403 on token exchange, CSRF/trustedOrigins, callback URL mismatches) are covered in `references/common-issues.md` under "Better Auth / Sigma Plugin Issues".
+
 **Token verification endpoint:**
 ```typescript
 // POST /api/auth/token-for-endpoint

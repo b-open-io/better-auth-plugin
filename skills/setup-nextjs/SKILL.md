@@ -221,17 +221,92 @@ Still required because OAuth redirects are GETs. In this mode you can rely on se
 
 ---
 
+## Troubleshooting
+
+### 403 on Token Exchange (CSRF / trustedOrigins)
+
+**Symptom**: OAuth flow succeeds (user authenticates, code is returned in redirect), but the callback page shows "Token Exchange Failed - Server returned 403". Better Auth logs: `Invalid origin: https://your-preview-url.vercel.app`
+
+**Root Cause**: Better Auth's CSRF protection rejects POST requests from origins not listed in `trustedOrigins`. This commonly happens on Vercel preview deployments (e.g. `your-app-git-branch-team.vercel.app`) which have dynamic URLs that don't match your hardcoded production domain.
+
+**Fix (Mode B)**: Add Vercel's auto-set environment variables to your `trustedOrigins` in `lib/auth.ts`:
+
+```typescript
+const vercelUrl = process.env.VERCEL_URL
+  ? `https://${process.env.VERCEL_URL}`
+  : "";
+const vercelBranchUrl = process.env.VERCEL_BRANCH_URL
+  ? `https://${process.env.VERCEL_BRANCH_URL}`
+  : "";
+
+export const auth = betterAuth({
+  trustedOrigins: [
+    "https://your-production-domain.com",
+    vercelUrl,
+    vercelBranchUrl,
+    "http://localhost:3000",
+  ].filter(Boolean),
+  // ...
+});
+```
+
+`VERCEL_URL` and `VERCEL_BRANCH_URL` are automatically set by Vercel on every deployment (without the `https://` protocol prefix). This covers all preview, branch, and production deployments.
+
+**Fix (Mode A)**: If using the standalone `createCallbackHandler()`, the POST to your own `/api/auth/sigma/callback` route may also be subject to your framework's CSRF protections. Ensure the callback origin is trusted.
+
+**Important**: This is a Better Auth configuration issue, not a Sigma plugin issue. The OAuth flow (redirect to Sigma, user auth, redirect back with code) works correctly. The 403 happens on the subsequent local POST that exchanges the code for tokens.
+
+### Missing Environment Variables
+
+Run the validation script to check all required env vars:
+
+```bash
+bun run scripts/validate-env.ts
+```
+
+Required variables:
+- `NEXT_PUBLIC_SIGMA_CLIENT_ID` - Your app's client ID registered with Sigma
+- `NEXT_PUBLIC_SIGMA_AUTH_URL` - The Sigma auth server URL (e.g. `https://auth.sigmaidentity.com`)
+- `SIGMA_MEMBER_PRIVATE_KEY` - Server-only WIF key for signing token exchange requests
+
+### Callback URL Mismatch
+
+**Symptom**: OAuth redirect fails or returns an error before reaching your callback page.
+
+**Root Cause**: The redirect URI sent during the OAuth flow doesn't match the allowed callback URLs configured in your Sigma client registration.
+
+**Fix**: Ensure your callback URL is registered in Sigma for every domain you deploy to:
+- `http://localhost:3000/auth/sigma/callback` (local dev)
+- `https://your-domain.com/auth/sigma/callback` (production)
+- `https://your-app-git-branch-team.vercel.app/auth/sigma/callback` (Vercel previews)
+
+### auth-client baseURL Misconfiguration
+
+**Symptom**: Sign-in button does nothing, or token exchange POSTs go to the wrong URL.
+
+**Root Cause**: The `baseURL` in `createAuthClient()` must point to your own app's API routes, not the Sigma auth server.
+
+```typescript
+// Mode A: Points to YOUR app's API routes
+export const authClient = createAuthClient({
+  baseURL: "/api/auth", // Relative to your app
+  plugins: [sigmaClient()],
+});
+
+// Mode B: Same pattern - YOUR app serves Better Auth
+export const authClient = createAuthClient({
+  baseURL: "/api/auth", // Relative to your app
+  plugins: [sigmaClient()],
+});
+```
+
 ## Security Considerations
 
-⚠️ **Environment Variables**: Never expose `SIGMA_MEMBER_PRIVATE_KEY` to the client. It is required only on the server for signing token exchange requests.
-
-⚠️ **Token Storage**: In Mode A, store tokens securely (avoid `localStorage` for refresh tokens in production).
-
-**Same-Domain Sessions**: `useSession` only works when your auth server is on the same domain (Mode B).
-
-**Wallet Unlock Gate**: Plugin ensures wallet access before authentication (session → local backup → cloud backup → signup).
-
-**PKCE**: The client plugin automatically handles PKCE (Proof Key for Code Exchange) for secure OAuth flows.
+- **Environment Variables**: Never expose `SIGMA_MEMBER_PRIVATE_KEY` to the client. It is required only on the server for signing token exchange requests.
+- **Token Storage**: In Mode A, store tokens securely (avoid `localStorage` for refresh tokens in production).
+- **Same-Domain Sessions**: `useSession` only works when your auth server is on the same domain (Mode B).
+- **Wallet Unlock Gate**: Plugin ensures wallet access before authentication (session -> local backup -> cloud backup -> signup).
+- **PKCE**: The client plugin automatically handles PKCE (Proof Key for Code Exchange) for secure OAuth flows.
 
 ## Reference
 

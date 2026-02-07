@@ -327,6 +327,67 @@ const token = getAuthToken({
 });
 ```
 
+## Better Auth / Sigma Plugin Issues
+
+### Issue: 403 on Sigma OAuth Token Exchange
+
+**Symptoms:**
+- OAuth flow succeeds (user authenticates at Sigma, redirects back with `?code=...&state=...`)
+- Callback page shows "Token Exchange Failed - Server returned 403"
+- Better Auth logs: `Invalid origin: https://your-preview-url.vercel.app`
+
+**Root Causes:**
+1. The app's domain is not listed in Better Auth's `trustedOrigins` configuration
+2. Most common on Vercel preview deployments where URLs are dynamic (e.g. `app-git-branch-team.vercel.app`)
+3. This is a Better Auth CSRF protection issue, not a Sigma plugin issue
+
+**Diagnosis:**
+```typescript
+// Check Better Auth server logs for:
+// "Invalid origin: https://..."
+
+// Verify trustedOrigins in your auth config:
+console.log("Trusted origins:", trustedOrigins);
+console.log("Request origin:", request.headers.get("origin"));
+```
+
+**Solutions:**
+- Add Vercel auto-set env vars to `trustedOrigins`:
+```typescript
+const vercelUrl = process.env.VERCEL_URL
+  ? `https://${process.env.VERCEL_URL}`
+  : "";
+const vercelBranchUrl = process.env.VERCEL_BRANCH_URL
+  ? `https://${process.env.VERCEL_BRANCH_URL}`
+  : "";
+
+export const auth = betterAuth({
+  trustedOrigins: [
+    "https://your-production-domain.com",
+    vercelUrl,
+    vercelBranchUrl,
+    "http://localhost:3000",
+  ].filter(Boolean),
+  // ...
+});
+```
+
+**Key Insight:** `VERCEL_URL` and `VERCEL_BRANCH_URL` are auto-set by Vercel on every deployment (without `https://` prefix). Using these ensures all preview, branch, and production deployments are trusted without hardcoding URLs.
+
+### Issue: Callback URL not registered in Sigma
+
+**Symptoms:**
+- OAuth redirect fails before reaching your callback page
+- Sigma returns an error about invalid redirect URI
+
+**Root Causes:**
+1. The callback URL for the current domain is not registered in Sigma's client configuration
+2. Vercel preview URLs are dynamic and may not be pre-registered
+
+**Solutions:**
+- Register callback URLs for all deployment targets in your Sigma client config
+- For Vercel previews, add a wildcard pattern if supported, or add each preview domain as needed
+
 ## Development/Testing Issues
 
 ### Issue: Test failures with static tokens
@@ -493,6 +554,8 @@ When facing verification failures, follow this diagnostic sequence:
 | Works in dev, fails in prod | Check server time synchronization |
 | BSM scheme fails | Verify public key is compressed |
 | BRC77 scheme fails | Update to latest @bsv/sdk |
+| 403 on Sigma token exchange | Add deployment URL to Better Auth `trustedOrigins` |
+| OAuth succeeds but callback 403s | CSRF rejection - origin not in `trustedOrigins` |
 
 ## Getting Help
 

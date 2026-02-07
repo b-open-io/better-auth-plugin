@@ -12,19 +12,41 @@ bun add @sigma-auth/better-auth-plugin
 npm install @sigma-auth/better-auth-plugin
 ```
 
-### Claude Code Skills
+### Claude Code Plugin
 
-Works with Claude Code, Cursor, Codex, and other AI coding agents:
+Install the Claude Code plugin for AI-assisted setup, diagnostics, and troubleshooting:
+
+```bash
+claude plugin install sigma-auth@b-open-io
+```
+
+Or install skills individually:
 
 ```bash
 npx add-skill b-open-io/sigma-auth-better-auth-plugin
 ```
 
-Or via Claude Code marketplace:
+#### Available Skills
+
+| Skill | Command | Description |
+|-------|---------|-------------|
+| **setup-nextjs** | `/sigma-auth:setup-nextjs` | Step-by-step Next.js integration guide with project detection, env validation, and health check scripts |
+| **setup-convex** | `/sigma-auth:setup-convex` | Convex + Better Auth integration guide with server plugin configuration |
+| **bitcoin-auth-diagnostics** | `/sigma-auth:bitcoin-auth-diagnostics` | Diagnose token verification failures, signature errors, and integration issues |
+| **tokenpass** | `/sigma-auth:tokenpass` | Token-gated access patterns using NFT ownership verification |
+| **device-authorization** | `/sigma-auth:device-authorization` | Device authorization flow for CLI tools and IoT devices |
+
+#### Setup Scripts (via setup-nextjs skill)
 
 ```bash
-/plugin marketplace add b-open-io/claude-plugins
-/plugin install sigma-auth@b-open-io
+# Analyze your project and get setup recommendations
+bun run skills/setup-nextjs/scripts/detect.ts /path/to/project
+
+# Validate environment variables
+bun run skills/setup-nextjs/scripts/validate-env.ts
+
+# Test connection to Sigma Auth server
+bun run skills/setup-nextjs/scripts/health-check.ts
 ```
 
 ## How It Works
@@ -547,6 +569,42 @@ After successful authentication via `handleCallback()`, you receive:
 - Subscription tier verification via NFT ownership
 - Type-safe with full TypeScript support
 - Full OIDC compliance with ID tokens
+
+## Troubleshooting
+
+### 403 on Token Exchange (Most Common Issue)
+
+**Symptom**: OAuth flow succeeds, user authenticates, redirects back with `?code=...&state=...`, but then you get "Token Exchange Failed - Server returned 403".
+
+**Cause**: Better Auth's CSRF protection rejects the POST because the requesting origin isn't in `trustedOrigins`. This is extremely common on Vercel preview deployments where URLs are dynamic.
+
+**Fix**: Add Vercel's auto-set environment variables to your `trustedOrigins`:
+
+```typescript
+export const auth = betterAuth({
+  trustedOrigins: [
+    "https://your-production-domain.com",
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "",
+    process.env.VERCEL_BRANCH_URL ? `https://${process.env.VERCEL_BRANCH_URL}` : "",
+    "http://localhost:3000",
+  ].filter(Boolean),
+  // ...
+});
+```
+
+This is a Better Auth configuration issue, not a Sigma plugin issue. See the [setup-nextjs skill](#available-skills) for more troubleshooting tips.
+
+### Callback URL Not Registered
+
+Ensure your callback URL is registered in your Sigma client configuration for every domain you deploy to, including Vercel preview URLs.
+
+### Environment Variable Issues
+
+Run the validation script to check all required env vars:
+
+```bash
+bun run skills/setup-nextjs/scripts/validate-env.ts
+```
 
 ## Documentation
 
