@@ -663,9 +663,12 @@ export const sigmaClient = (options: SigmaClientOptions = {}) => {
 						// Detect if we're in cross-domain mode (Mode A)
 						// Cross-domain: auth server is external (e.g., auth.sigmaidentity.com), need to proxy through local API
 						// Same-domain: auth server is on same domain, can use $fetch directly
+						// NOTE: Must compare exact hostnames, not use includes(), because
+						// "auth.sigmaidentity.com".includes("sigmaidentity.com") is true
+						// but they are different origins (subdomain vs apex domain)
 						const isCrossDomain =
 							typeof window !== "undefined" &&
-							!getSigmaUrl().includes(window.location.host);
+							new URL(getSigmaUrl()).host !== window.location.host;
 
 						try {
 							let data: OAuthCallbackResult;

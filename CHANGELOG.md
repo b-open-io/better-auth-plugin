@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.74
+
+### Fixed
+- **Cross-domain detection for subdomain OAuth**: Fixed `handleCallback()` cross-domain detection using `URL.host` comparison instead of `String.includes()`. Previously, `"auth.sigmaidentity.com".includes("sigmaidentity.com")` returned `true`, causing the plugin to incorrectly use same-domain mode (Mode B) when the auth server was on a subdomain. This broke OAuth for apps like `sigmaidentity.com` authenticating against `auth.sigmaidentity.com`.
+
 ## 0.0.70
 
 ### Fixed
