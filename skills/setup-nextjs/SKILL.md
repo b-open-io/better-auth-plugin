@@ -300,6 +300,66 @@ export const authClient = createAuthClient({
 });
 ```
 
+### 400 "Missing a required credential value" (PKCE code_verifier)
+
+**Symptom**: OAuth flow reaches the callback page, the callback handler calls the auth server's token endpoint, but gets 400: `"Missing a required credential value for authorization_code grant"`.
+
+**Root Cause**: The auth server's `@better-auth/oauth-provider` requires either `code_verifier` (PKCE) or `client_secret` for the authorization_code grant. The sigma plugin uses PKCE, storing `code_verifier` in sessionStorage during `signIn.sigma()` and reading it back in `handleCallback()`. If the verifier is missing from the token exchange, this error occurs.
+
+**Common causes:**
+1. **Cross-domain detection failure** (fixed in v0.0.74): Plugin v0.0.73 used `String.includes()` which incorrectly matched subdomains (`"auth.sigmaidentity.com".includes("sigmaidentity.com")` = true). This made the plugin think it was same-domain when it was cross-domain, causing it to use `$fetch` instead of the local API proxy.
+2. **Mode B baseURL remnant**: If `createAuthClient({ baseURL: 'https://auth.sigmaidentity.com' })` is set (Mode B pattern), Better Auth's `$fetch` calls go to the auth server. While this doesn't directly affect PKCE (handleCallback uses native `fetch` for cross-domain), it can cause other issues.
+3. **sessionStorage cleared**: The code_verifier is stored in sessionStorage which is per-origin and per-tab. If the sign-in opens in a different tab or the session is cleared, the verifier is lost.
+
+**Fix**: Ensure plugin is v0.0.74+, remove any `baseURL` pointing to the auth server, and verify the callback handler logs show `hasCodeVerifier: true`.
+
+### Migrating from Mode B to Mode A
+
+**Symptom**: Various auth failures after switching from same-domain (Mode B) to cross-domain (Mode A) OAuth.
+
+**Common leftover issues:**
+1. **`baseURL` still pointing to auth server**: In Mode A, either omit `baseURL` (defaults to current origin) or set it to your app's own API path (e.g., `/api/auth`). Never point it to the auth server for Mode A.
+2. **Missing API route**: Mode A requires `app/api/auth/sigma/callback/route.ts` with `createCallbackHandler()`. Mode B uses Better Auth's built-in routing.
+3. **Catch-all route conflict**: If you had `app/api/auth/[...all]/route.ts` for Mode B, it may conflict with the explicit `app/api/auth/sigma/callback/route.ts` in Mode A. Remove the catch-all or ensure the explicit route takes precedence.
+4. **`signOut()` calling auth server**: `authClient.signOut()` uses the `baseURL`. In Mode A, this should go to your app (or be handled locally), not the auth server.
+
+**Checklist for Mode B to Mode A migration:**
+- [ ] Remove `baseURL` from `createAuthClient()` (or set to own app URL)
+- [ ] Add `app/api/auth/sigma/callback/route.ts` with `createCallbackHandler()`
+- [ ] Remove `app/api/auth/[...all]/route.ts` (if it was for Mode B)
+- [ ] Remove server-side `betterAuth()` config and `sigmaCallbackPlugin` (not needed in Mode A)
+- [ ] Update sign-out to clear local state only (no server session to invalidate in Mode A)
+- [ ] Verify `NEXT_PUBLIC_SIGMA_CLIENT_ID` and `SIGMA_MEMBER_PRIVATE_KEY` env vars are set
+
+### Plugin Version Pinning
+
+**Symptom**: After updating the plugin, `node_modules` still has the old version.
+
+**Root Cause**: Bun's lockfile or cache may resolve to an older version, especially with caret (`^`) ranges.
+
+**Fix**: Pin the exact version in package.json (no caret):
+```json
+"@sigma-auth/better-auth-plugin": "0.0.74"
+```
+
+Then run:
+```bash
+bun add @sigma-auth/better-auth-plugin@0.0.74
+```
+
+Verify with:
+```bash
+cat node_modules/@sigma-auth/better-auth-plugin/package.json | grep version
+```
+
+### React Hooks Violation in Callback Page
+
+**Symptom**: React error about hooks being called conditionally, or callback page not rendering properly.
+
+**Root Cause**: `useState` or other hooks called inside conditional blocks (e.g., `if (error) { const [copied, setCopied] = useState(false); }`). This violates the Rules of Hooks.
+
+**Fix**: Move ALL hooks to the top level of the component function. Use conditional rendering in JSX instead of conditional hook calls.
+
 ## Security Considerations
 
 - **Environment Variables**: Never expose `SIGMA_MEMBER_PRIVATE_KEY` to the client. It is required only on the server for signing token exchange requests.
