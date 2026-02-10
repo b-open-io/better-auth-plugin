@@ -156,6 +156,16 @@ export interface SigmaSignInOptions {
 	/** OAuth provider (e.g., 'github', 'google') */
 	provider?: string;
 	/**
+	 * OAuth prompt parameter to control authorization behavior.
+	 * - 'login' — force re-authentication even if session exists
+	 * - 'consent' — force consent screen even if previously approved
+	 * - 'select_account' — force identity/account selection
+	 * - 'none' — fail if interaction is required
+	 *
+	 * Multiple values can be space-separated (e.g., 'select_account consent').
+	 */
+	prompt?: string;
+	/**
 	 * OAuth client ID - REQUIRED for OAuth redirect flow
 	 * Get this from your OAuth client registration
 	 */
@@ -574,6 +584,10 @@ export const sigmaClient = (options: SigmaClientOptions = {}) => {
 
 						if (signInOptions?.provider) {
 							params.append("provider", signInOptions.provider);
+						}
+
+						if (signInOptions?.prompt) {
+							params.append("prompt", signInOptions.prompt);
 						}
 
 						// IMPORTANT: Use custom authorize endpoint that FRONTS Better Auth
