@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.75
+
+### Fixed
+- **Data URI images causing 494 REQUEST_HEADER_TOO_LARGE on Vercel**: The provider plugin was copying base64 data URI images from the `profile` table directly into `user.image`. This caused the session cookie cache to serialize ~52KB+ of image data into 19+ chunked cookies, exceeding Vercel's ~16KB request header limit. Now only URL-based images are stored in `user.image`; data URI images are skipped with a debug warning. Profile images are served via OIDC userinfo claims instead.
+
 ## 0.0.74
 
 ### Fixed

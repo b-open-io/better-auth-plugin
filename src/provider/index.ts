@@ -352,13 +352,27 @@ export const sigmaProvider = (
 
 							const profile = profileResult.rows[0];
 							if (profile) {
+								// Only store URL-based images in user record.
+								// Data URIs (base64 images) are too large for session cookies
+								// and cause 494 REQUEST_HEADER_TOO_LARGE errors on Vercel.
+								// Profile images are served via OIDC userinfo claims instead.
+								const safeImage =
+									profile.image && !profile.image.startsWith("data:")
+										? profile.image
+										: null;
+								if (profile.image && !safeImage) {
+									debug.warn(
+										`Skipping data URI image for user ${userId.substring(0, 15)}... (${profile.image.length} bytes). ` +
+											"Data URI images are too large for session cookies. Use a URL instead.",
+									);
+								}
 								// Update user record with profile data
 								await ctx.context.adapter.update({
 									model: "user",
 									where: [{ field: "id", value: userId }],
 									update: {
 										name: profile.name,
-										image: profile.image,
+										image: safeImage,
 										...(profile.member_pubkey && {
 											pubkey: profile.member_pubkey,
 										}),
@@ -861,13 +875,28 @@ export const sigmaProvider = (
 
 							const selectedProfile = profileResult.rows[0];
 							if (selectedProfile) {
+								// Only store URL-based images in user record.
+								// Data URIs (base64 images) are too large for session cookies
+								// and cause 494 REQUEST_HEADER_TOO_LARGE errors on Vercel.
+								// Profile images are served via OIDC userinfo claims instead.
+								const safeImage =
+									selectedProfile.image &&
+									!selectedProfile.image.startsWith("data:")
+										? selectedProfile.image
+										: null;
+								if (selectedProfile.image && !safeImage) {
+									debug.warn(
+										`Skipping data URI image for user ${user.id.substring(0, 15)}... (${selectedProfile.image.length} bytes). ` +
+											"Data URI images are too large for session cookies. Use a URL instead.",
+									);
+								}
 								// Update user record with profile data
 								await ctx.context.adapter.update({
 									model: "user",
 									where: [{ field: "id", value: user.id }],
 									update: {
 										name: selectedProfile.name,
-										image: selectedProfile.image,
+										image: safeImage,
 										...(selectedProfile.member_pubkey && {
 											pubkey: selectedProfile.member_pubkey,
 										}),
