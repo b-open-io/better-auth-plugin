@@ -46,6 +46,7 @@ export { organizationClient };
 let signer: SigmaSigner | null = null;
 let signerType: "local" | "iframe" | null = null;
 let storedBapId: string | null = null;
+let hasSessionListener = false;
 
 // Storage key for persisting bapId
 const BAP_ID_STORAGE_KEY = "sigma_bap_id";
@@ -138,6 +139,18 @@ const loadStoredBapId = (): string | null => {
 		storedBapId = stored;
 	}
 	return storedBapId;
+};
+
+const clearStoredIdentity = (): void => {
+	storedBapId = null;
+	if (typeof window !== "undefined") {
+		localStorage.removeItem(BAP_ID_STORAGE_KEY);
+	}
+	if (signer) {
+		signer.destroy();
+		signer = null;
+		signerType = null;
+	}
 };
 
 /**
@@ -233,6 +246,13 @@ export interface SigmaClientOptions {
 	 * @param isLocal - True if using local server, false if cloud
 	 */
 	onServerDetected?: (url: string, isLocal: boolean) => void;
+
+	/**
+	 * Automatically clear persisted BAP identity when session transitions
+	 * from authenticated to signed-out.
+	 * Default: true
+	 */
+	clearIdentityOnSignOut?: boolean;
 }
 
 /**
@@ -290,6 +310,33 @@ export const sigmaClient = (options: SigmaClientOptions = {}) => {
 		id: "sigma",
 
 		getActions: ($fetch, $store) => {
+			if (
+				typeof window !== "undefined" &&
+				(options.clearIdentityOnSignOut ?? true) &&
+				!hasSessionListener
+			) {
+				type SessionAtomValue = { data: unknown | null };
+				type SessionAtomLike = {
+					get?: () => SessionAtomValue;
+					listen?: (listener: (value: SessionAtomValue) => void) => () => void;
+				};
+				const store = $store as {
+					atoms?: Record<string, SessionAtomLike | undefined>;
+				};
+				const sessionAtom = store.atoms?.session;
+				if (sessionAtom?.get && sessionAtom.listen) {
+					hasSessionListener = true;
+					let hadSession = !!sessionAtom.get()?.data;
+					sessionAtom.listen((value) => {
+						const hasSession = !!value?.data;
+						if (hadSession && !hasSession) {
+							clearStoredIdentity();
+						}
+						hadSession = hasSession;
+					});
+				}
+			}
+
 			return {
 				subscription: {
 					/**
@@ -588,6 +635,13 @@ export const sigmaClient = (options: SigmaClientOptions = {}) => {
 
 						if (signInOptions?.prompt) {
 							params.append("prompt", signInOptions.prompt);
+						}
+
+						if (signInOptions?.bapId) {
+							// Support both keys for backward/forward compatibility
+							// with auth-server implementations.
+							params.append("bapId", signInOptions.bapId);
+							params.append("bap_id", signInOptions.bapId);
 						}
 
 						// IMPORTANT: Use custom authorize endpoint that FRONTS Better Auth
@@ -1021,15 +1075,7 @@ export const sigmaClient = (options: SigmaClientOptions = {}) => {
 					 * Call this on logout
 					 */
 					clearIdentity: (): void => {
-						storedBapId = null;
-						if (typeof window !== "undefined") {
-							localStorage.removeItem(BAP_ID_STORAGE_KEY);
-						}
-						if (signer) {
-							signer.destroy();
-							signer = null;
-							signerType = null;
-						}
+						clearStoredIdentity();
 					},
 
 					/**

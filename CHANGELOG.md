@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.76
+
+### Added
+- **BAP-aware OAuth authorize requests**: `signIn.sigma({ bapId })` now forwards the selected identity in authorize params (`bapId` and `bap_id`) so auth servers can target the intended BAP identity in multi-identity flows.
+- **Automatic identity cleanup on sign-out**: Client plugin now clears persisted Sigma identity when Better Auth session transitions from signed-in to signed-out. Added `clearIdentityOnSignOut` option (defaults to `true`).
+
 ## 0.0.75
 
 ### Fixed
