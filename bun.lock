@@ -5,6 +5,7 @@
     "": {
       "name": "@sigma-auth/better-auth-plugin",
       "dependencies": {
+        "@sigma-auth/better-auth-plugin": "0.0.74",
         "bitcoin-auth": "^0.0.5",
       },
       "devDependencies": {
@@ -14,7 +15,7 @@
         "@neondatabase/serverless": "^1.0.2",
         "@types/node": "^24.10.7",
         "better-auth": "^1.4.10",
-        "bsv-bap": "^0.1.16",
+        "bsv-bap": "0.1.18",
         "typescript": "^5.9.3",
         "zod": "^4.3.5",
       },
@@ -70,6 +71,8 @@
 
     "@noble/hashes": ["@noble/hashes@2.0.1", "", {}, "sha512-XlOlEbQcE9fmuXxrVTXCTlG2nlRXa9Rj3rr5Ue/+tX+nmkgbX720YHh0VR3hBF9xDvwnb8D2shVGOwNx+ulArw=="],
 
+    "@sigma-auth/better-auth-plugin": ["@sigma-auth/better-auth-plugin@0.0.74", "", { "dependencies": { "bitcoin-auth": "^0.0.5" }, "peerDependencies": { "@bsv/sdk": "^1.9.9", "@neondatabase/serverless": "^1.0.2", "better-auth": "^1.4.5", "bsv-bap": "^0.1.16", "payload-auth": "^0.6.0", "zod": "^4.1.12" }, "optionalPeers": ["@bsv/sdk", "@neondatabase/serverless", "bsv-bap", "payload-auth", "zod"] }, "sha512-h9jVbXN47D1PHeh8SPSEjLfY4InTAIzvpCEwPLWMKr4CN+1K3srJG/M+ub+Bv6v5WLmP9TA8rpusXgEQeALdYQ=="],
+
     "@standard-schema/spec": ["@standard-schema/spec@1.0.0", "", {}, "sha512-m2bOd0f2RT9k8QJx1JN85cZYyH1RqFBdlwtkSlf4tBDYLCiiZnv1fIIwacK6cqwXavOydf0NPToMQgpKq+dVlA=="],
 
     "@types/node": ["@types/node@24.10.7", "", { "dependencies": { "undici-types": "~7.16.0" } }, "sha512-+054pVMzVTmRQV8BhpGv3UyfZ2Llgl8rdpDTon+cUH9+na0ncBVXj3wTUKh14+Kiz18ziM3b4ikpP5/Pc0rQEQ=="],
@@ -82,7 +85,7 @@
 
     "bitcoin-auth": ["bitcoin-auth@0.0.5", "", { "peerDependencies": { "@bsv/sdk": "^1.5.1", "typescript": "^5.8.3" } }, "sha512-rumjwSWaGMv5z9ZIiaHmpdGPKJwOMqYJ3T+39ns+rLNnfzeNQOG2IBvR/XpzAXqyvGGsS8g/7yDgUxqftPM0IA=="],
 
-    "bsv-bap": ["bsv-bap@0.1.16", "", { "dependencies": { "schema-dts": "^1.1.5" }, "peerDependencies": { "@bsv/sdk": "^1.3.18" }, "bin": { "bap": "src/cli.ts" } }, "sha512-9ZVqaqoi9qzpZj2H0OUeXDTne9B9d5iRhndkjbhHNz6OYLr9Y415QWUZOtRprzJPPqctzU6NgBSIpSMlygkS8A=="],
+    "bsv-bap": ["bsv-bap@0.1.18", "", { "dependencies": { "schema-dts": "^1.1.5" }, "peerDependencies": { "@bsv/sdk": "^1.3.18 || ^2.0.0" }, "bin": { "bap": "src/cli.ts" } }, "sha512-YjFFcS0Q5NSPcF5RfBaobByfqVRXerNFE2qAuSTRm5S+g0hS6VXcbuf8NrqIgT7bHQet1qBSNOlYs5H9hj9znQ=="],
 
     "defu": ["defu@6.1.4", "", {}, "sha512-mEQCMmwJu317oSz8CwdIOdwf3xMif1ttiM8LTufzc3g6kR+9Pe236twL8j3IYT1F7GfRgGcW6MWxzZjLIkuHIg=="],
 
