@@ -15,7 +15,7 @@
         "@neondatabase/serverless": "^1.0.2",
         "@types/node": "^24.10.7",
         "better-auth": "^1.4.10",
-        "bsv-bap": "0.1.18",
+        "bsv-bap": "0.1.21",
         "typescript": "^5.9.3",
         "zod": "^4.3.5",
       },
@@ -23,7 +23,7 @@
         "@bsv/sdk": "^1.9.9",
         "@neondatabase/serverless": "^1.0.2",
         "better-auth": "^1.4.5",
-        "bsv-bap": "^0.1.16",
+        "bsv-bap": "^0.1.21",
         "payload-auth": "^0.6.0",
         "zod": "^4.1.12",
       },
@@ -85,7 +85,7 @@
 
     "bitcoin-auth": ["bitcoin-auth@0.0.5", "", { "peerDependencies": { "@bsv/sdk": "^1.5.1", "typescript": "^5.8.3" } }, "sha512-rumjwSWaGMv5z9ZIiaHmpdGPKJwOMqYJ3T+39ns+rLNnfzeNQOG2IBvR/XpzAXqyvGGsS8g/7yDgUxqftPM0IA=="],
 
-    "bsv-bap": ["bsv-bap@0.1.18", "", { "dependencies": { "schema-dts": "^1.1.5" }, "peerDependencies": { "@bsv/sdk": "^1.3.18 || ^2.0.0" }, "bin": { "bap": "src/cli.ts" } }, "sha512-YjFFcS0Q5NSPcF5RfBaobByfqVRXerNFE2qAuSTRm5S+g0hS6VXcbuf8NrqIgT7bHQet1qBSNOlYs5H9hj9znQ=="],
+    "bsv-bap": ["bsv-bap@0.1.21", "", { "dependencies": { "schema-dts": "^1.1.5" }, "peerDependencies": { "@bsv/sdk": "^1.3.18 || ^2.0.0" }, "bin": { "bap": "src/cli.ts" } }, "sha512-RVgP3yfIu11qmj3iuubC9BsUjjqdlmlhsw73j5VRh7BSDIrXAzGWy1yLly2p/jBPVxe26uYqR+jXhAGKbjR3dg=="],
 
     "defu": ["defu@6.1.4", "", {}, "sha512-mEQCMmwJu317oSz8CwdIOdwf3xMif1ttiM8LTufzc3g6kR+9Pe236twL8j3IYT1F7GfRgGcW6MWxzZjLIkuHIg=="],
 
