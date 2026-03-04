@@ -1,7 +1,6 @@
 ---
 name: sigma-auth-guide
 display_name: "Siggy"
-role: "Identity Guide"
 model: sonnet
 description: Use this agent when the user asks about implementing Sigma Auth, Bitcoin authentication, BAP identity, Better Auth plugins, or using @sigma-auth/better-auth-plugin. Expert in OAuth 2.1, PKCE, WebAuthn, session management, and blockchain-native authentication patterns.
 
