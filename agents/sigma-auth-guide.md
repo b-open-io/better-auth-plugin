@@ -2,44 +2,44 @@
 name: sigma-auth-guide
 display_name: "Siggy"
 model: sonnet
-description: Use this agent when the user asks about implementing Sigma Auth, Bitcoin authentication, BAP identity, Better Auth plugins, or using @sigma-auth/better-auth-plugin. Expert in OAuth 2.1, PKCE, WebAuthn, session management, and blockchain-native authentication patterns.
+description: |-
+  Use this agent when the user asks about implementing Sigma Auth, Bitcoin authentication, BAP identity, Better Auth plugins, or using @sigma-auth/better-auth-plugin. Expert in OAuth 2.1, PKCE, WebAuthn, session management, and blockchain-native authentication patterns.
 
-<example>
-Context: User wants to add Sigma Identity auth to their Next.js app
-user: "How do I add Sigma Auth to my app?"
-assistant: "I'll use the sigma-auth-guide agent to help you implement Sigma Identity authentication with the Better Auth plugin."
-<commentary>
-User is asking about implementing Sigma Auth - this agent has comprehensive knowledge of the @sigma-auth/better-auth-plugin package.
-</commentary>
-</example>
+  <example>
+  Context: User wants to add Sigma Identity auth to their Next.js app
+  user: "How do I add Sigma Auth to my app?"
+  assistant: "I'll use the sigma-auth-guide agent to help you implement Sigma Identity authentication with the Better Auth plugin."
+  <commentary>
+  User is asking about implementing Sigma Auth - this agent has comprehensive knowledge of the @sigma-auth/better-auth-plugin package.
+  </commentary>
+  </example>
 
-<example>
-Context: User has OAuth callback errors
-user: "I'm getting 'invalid state parameter' when signing in"
-assistant: "I'll use the sigma-auth-guide agent to diagnose the OAuth callback issue."
-<commentary>
-OAuth/PKCE troubleshooting is core to this agent's expertise.
-</commentary>
-</example>
+  <example>
+  Context: User has OAuth callback errors
+  user: "I'm getting 'invalid state parameter' when signing in"
+  assistant: "I'll use the sigma-auth-guide agent to diagnose the OAuth callback issue."
+  <commentary>
+  OAuth/PKCE troubleshooting is core to this agent's expertise.
+  </commentary>
+  </example>
 
-<example>
-Context: User wants to understand BAP identity
-user: "What is BAP and how does it work with Sigma Identity?"
-assistant: "I'll use the sigma-auth-guide agent to explain BAP (Bitcoin Attestation Protocol) and its integration."
-<commentary>
-BAP identity protocol is a core component of Sigma Identity authentication.
-</commentary>
-</example>
+  <example>
+  Context: User wants to understand BAP identity
+  user: "What is BAP and how does it work with Sigma Identity?"
+  assistant: "I'll use the sigma-auth-guide agent to explain BAP (Bitcoin Attestation Protocol) and its integration."
+  <commentary>
+  BAP identity protocol is a core component of Sigma Identity authentication.
+  </commentary>
+  </example>
 
-<example>
-Context: User needs to verify user identity with Bitcoin signatures
-user: "How do I verify a user's Bitcoin signature in my API?"
-assistant: "I'll use the sigma-auth-guide agent for Bitcoin signature verification patterns."
-<commentary>
-Bitcoin signature auth is central to Sigma Identity's approach.
-</commentary>
-</example>
-
+  <example>
+  Context: User needs to verify user identity with Bitcoin signatures
+  user: "How do I verify a user's Bitcoin signature in my API?"
+  assistant: "I'll use the sigma-auth-guide agent for Bitcoin signature verification patterns."
+  <commentary>
+  Bitcoin signature auth is central to Sigma Identity's approach.
+  </commentary>
+  </example>
 tools: ["Read", "Write", "Edit", "Grep", "Glob", "WebFetch", "Bash", "TodoWrite"]
 color: cyan
 ---
