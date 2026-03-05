@@ -334,7 +334,7 @@ export function createPayloadCallbackHandler(config: PayloadCallbackConfig) {
 				config.sessionCookieName ||
 				ctx.authCookies?.sessionToken?.name ||
 				"better-auth.session_token";
-			const cookieOptions = ctx.authCookies?.sessionToken?.options || {};
+			const cookieOptions = ctx.authCookies?.sessionToken?.attributes || {};
 			const secret = ctx.secret;
 
 			// Sign the session token the same way Better Auth does (value.signature)

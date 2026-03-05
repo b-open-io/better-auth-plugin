@@ -6,10 +6,10 @@ import type { BetterAuthPlugin, User } from "better-auth";
 import {
 	APIError,
 	createAuthEndpoint,
+	createAuthMiddleware,
 	sessionMiddleware,
 } from "better-auth/api";
 import { setSessionCookie } from "better-auth/cookies";
-import { createAuthMiddleware } from "better-auth/plugins";
 // Import organization from dedicated path for tree-shaking (per Better Auth best practices)
 import {
 	type OrganizationOptions,
