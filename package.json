@@ -75,10 +75,10 @@
 	},
 	"homepage": "https://sigmaidentity.com/docs/setup/client-plugin",
 	"peerDependencies": {
-		"better-auth": "^1.5.0",
 		"@bsv/sdk": "^1.9.9",
 		"@neondatabase/serverless": "^1.0.2",
-		"bsv-bap": "^0.1.21",
+		"better-auth": "^1.5.0",
+		"bsv-bap": "^0.1.23",
 		"payload-auth": "^0.6.0",
 		"zod": "^4.1.12"
 	},
@@ -110,7 +110,7 @@
 		"@neondatabase/serverless": "^1.0.2",
 		"@types/node": "^24.10.7",
 		"better-auth": "^1.5.0",
-		"bsv-bap": "0.1.21",
+		"bsv-bap": "0.1.23",
 		"typescript": "^5.9.3",
 		"zod": "^4.3.5"
 	}

@@ -296,6 +296,7 @@ const token = getAuthToken({
 For detailed API documentation and implementation examples, see:
 - `references/bitcoin-auth-api.md` - Complete API reference
 - `references/common-issues.md` - Detailed troubleshooting guide
+- `references/identity-terminology.md` - BAP ID vs BRC-31 identity key terminology matrix
 - Bitcoin Auth GitHub: https://github.com/b-open-io/bitcoin-auth
 - BRC-77 Specification: https://github.com/bitcoin-sv/BRCs/blob/master/peer-to-peer/0077.md
 

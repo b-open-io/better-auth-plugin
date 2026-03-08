@@ -22,8 +22,14 @@ export interface SyncResult {
 	lastUpdated?: string;
 }
 
+type WalletAwareIdentity = {
+	getWalletRoot?: (path?: string) => { toWif(): string };
+	getPathDerivedKey?: (path: string) => { toWif(): string };
+	rootPath: string;
+};
+
 /**
- * Get the WIF (private key) for the primary BAP identity's member key
+ * Get the WIF for the primary BAP identity's stable member key at rootPath.
  */
 function getMemberWif(bap: BAP, bapId: string): string {
 	const identity = bap.getId(bapId);
@@ -31,12 +37,21 @@ function getMemberWif(bap: BAP, bapId: string): string {
 		throw new Error(`Identity ${bapId} not found in BAP`);
 	}
 
-	const memberData = identity.exportMember();
-	if (!memberData?.wif) {
-		throw new Error("Failed to export member WIF");
+	const walletAwareIdentity = identity as unknown as WalletAwareIdentity;
+
+	if (typeof walletAwareIdentity.getWalletRoot === "function") {
+		return walletAwareIdentity
+			.getWalletRoot(walletAwareIdentity.rootPath)
+			.toWif();
 	}
 
-	return memberData.wif;
+	if (typeof walletAwareIdentity.getPathDerivedKey === "function") {
+		return walletAwareIdentity
+			.getPathDerivedKey(walletAwareIdentity.rootPath)
+			.toWif();
+	}
+
+	throw new Error("Failed to derive stable member WIF");
 }
 
 /**
