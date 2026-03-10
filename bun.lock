@@ -11,7 +11,7 @@
       "devDependencies": {
         "@better-fetch/fetch": "^1.1.21",
         "@biomejs/biome": "^2.3.11",
-        "@bsv/sdk": "^1.10.1",
+        "@bsv/sdk": "^2.0.0",
         "@neondatabase/serverless": "^1.0.2",
         "@types/node": "^24.10.7",
         "better-auth": "^1.5.0",
@@ -20,7 +20,7 @@
         "zod": "^4.3.5",
       },
       "peerDependencies": {
-        "@bsv/sdk": "^1.9.9",
+        "@bsv/sdk": "^2.0.0",
         "@neondatabase/serverless": "^1.0.2",
         "better-auth": "^1.5.0",
         "bsv-bap": "^0.1.23",
@@ -73,7 +73,7 @@
 
     "@biomejs/cli-win32-x64": ["@biomejs/cli-win32-x64@2.4.6", "", { "os": "win32", "cpu": "x64" }, "sha512-7++XhnsPlr1HDbor5amovPjOH6vsrFOCdp93iKXhFn6bcMUI6soodj3WWKfgEO6JosKU1W5n3uky3WW9RlRjTg=="],
 
-    "@bsv/sdk": ["@bsv/sdk@1.10.4", "", {}, "sha512-NuEXWwtuZ3WbER9wLtm33QCfhVwLyTyAzGholOeHo1imNDLLe7d2HADmf8hlSqAkNud3Y03S2poRc6aJMRWDrA=="],
+    "@bsv/sdk": ["@bsv/sdk@2.0.6", "", {}, "sha512-Kj6xoqSe4hN+4O8FwY2PMEJQI0/EA8kcwtb0B8zC2IGQWvYDCLJw37kMJRpIBxQNWAtWiI2bnpek1F5UYJAKmw=="],
 
     "@chevrotain/cst-dts-gen": ["@chevrotain/cst-dts-gen@10.5.0", "", { "dependencies": { "@chevrotain/gast": "10.5.0", "@chevrotain/types": "10.5.0", "lodash": "4.17.21" } }, "sha512-lhmC/FyqQ2o7pGK4Om+hzuDrm9rhFYIJ/AXoQBeongmn870Xeb0L6oGEiuR8nohFNL5sMaQEJWCxr1oIVIVXrw=="],
 
