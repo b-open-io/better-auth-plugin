@@ -1,6 +1,6 @@
 {
 	"name": "@sigma-auth/better-auth-plugin",
-	"version": "0.0.78",
+	"version": "0.0.79",
 	"description": "Better Auth plugins for Sigma Identity - client, server, and provider integrations",
 	"type": "module",
 	"main": "./dist/types/index.js",
@@ -101,7 +101,7 @@
 	},
 	"dependencies": {
 		"@sigma-auth/better-auth-plugin": "0.0.74",
-		"bitcoin-auth": "^0.0.5"
+		"bitcoin-auth": "^0.0.8"
 	},
 	"devDependencies": {
 		"@better-fetch/fetch": "^1.1.21",
