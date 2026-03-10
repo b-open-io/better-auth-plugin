@@ -5,7 +5,6 @@
     "": {
       "name": "@sigma-auth/better-auth-plugin",
       "dependencies": {
-        "@sigma-auth/better-auth-plugin": "0.0.74",
         "bitcoin-auth": "^0.0.8",
       },
       "devDependencies": {
@@ -122,8 +121,6 @@
     "@prisma/query-plan-executor": ["@prisma/query-plan-executor@7.2.0", "", {}, "sha512-EOZmNzcV8uJ0mae3DhTsiHgoNCuu1J9mULQpGCh62zN3PxPTd+qI9tJvk5jOst8WHKQNwJWR3b39t0XvfBB0WQ=="],
 
     "@prisma/studio-core": ["@prisma/studio-core@0.13.1", "", { "peerDependencies": { "@types/react": "^18.0.0 || ^19.0.0", "react": "^18.0.0 || ^19.0.0", "react-dom": "^18.0.0 || ^19.0.0" } }, "sha512-agdqaPEePRHcQ7CexEfkX1RvSH9uWDb6pXrZnhCRykhDFAV0/0P3d07WtfiY8hZWb7oRU4v+NkT4cGFHkQJIPg=="],
-
-    "@sigma-auth/better-auth-plugin": ["@sigma-auth/better-auth-plugin@0.0.74", "", { "dependencies": { "bitcoin-auth": "^0.0.5" }, "peerDependencies": { "@bsv/sdk": "^1.9.9", "@neondatabase/serverless": "^1.0.2", "better-auth": "^1.4.5", "bsv-bap": "^0.1.16", "payload-auth": "^0.6.0", "zod": "^4.1.12" }, "optionalPeers": ["@bsv/sdk", "@neondatabase/serverless", "bsv-bap", "payload-auth", "zod"] }, "sha512-h9jVbXN47D1PHeh8SPSEjLfY4InTAIzvpCEwPLWMKr4CN+1K3srJG/M+ub+Bv6v5WLmP9TA8rpusXgEQeALdYQ=="],
 
     "@standard-schema/spec": ["@standard-schema/spec@1.1.0", "", {}, "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w=="],
 
@@ -340,8 +337,6 @@
     "@prisma/fetch-engine/@prisma/get-platform": ["@prisma/get-platform@7.4.2", "", { "dependencies": { "@prisma/debug": "7.4.2" } }, "sha512-UTnChXRwiauzl/8wT4hhe7Xmixja9WE28oCnGpBtRejaHhvekx5kudr3R4Y9mLSA0kqGnAMeyTiKwDVMjaEVsw=="],
 
     "@prisma/get-platform/@prisma/debug": ["@prisma/debug@7.2.0", "", {}, "sha512-YSGTiSlBAVJPzX4ONZmMotL+ozJwQjRmZweQNIq/ER0tQJKJynNkRB3kyvt37eOfsbMCXk3gnLF6J9OJ4QWftw=="],
-
-    "@sigma-auth/better-auth-plugin/bitcoin-auth": ["bitcoin-auth@0.0.5", "", { "peerDependencies": { "@bsv/sdk": "^1.5.1", "typescript": "^5.8.3" } }, "sha512-rumjwSWaGMv5z9ZIiaHmpdGPKJwOMqYJ3T+39ns+rLNnfzeNQOG2IBvR/XpzAXqyvGGsS8g/7yDgUxqftPM0IA=="],
 
     "nypm/citty": ["citty@0.2.1", "", {}, "sha512-kEV95lFBhQgtogAPlQfJJ0WGVSokvLr/UEoFPiKKOXF7pl98HfUVUD0ejsuTCld/9xH9vogSywZ5KqHzXrZpqg=="],
 
