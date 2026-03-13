@@ -6,9 +6,11 @@
  *
  * Protocol:
  * - Parent → Iframe: SET_IDENTITY, SIGN_REQUEST, SIGN_AIP_REQUEST,
- *                    ENCRYPT_REQUEST, DECRYPT_REQUEST, GET_FRIEND_PUBKEY_REQUEST
+ *                    ENCRYPT_REQUEST, DECRYPT_REQUEST, GET_FRIEND_PUBKEY_REQUEST,
+ *                    GET_WALLET_KEY_REQUEST
  * - Iframe → Parent: WALLET_LOCKED, WALLET_UNLOCKED, SIGN_RESPONSE, SIGN_AIP_RESPONSE,
- *                    ENCRYPT_RESPONSE, DECRYPT_RESPONSE, GET_FRIEND_PUBKEY_RESPONSE, SIGNER_ERROR
+ *                    ENCRYPT_RESPONSE, DECRYPT_RESPONSE, GET_FRIEND_PUBKEY_RESPONSE,
+ *                    GET_WALLET_KEY_RESPONSE, SIGNER_ERROR
  */
 
 interface SignatureRequest {
@@ -74,6 +76,12 @@ interface GetFriendPubkeyResponse {
 	error?: string;
 }
 
+interface GetWalletKeyResponse {
+	requestId: string;
+	encryptedWalletKey?: string;
+	error?: string;
+}
+
 interface PendingRequest<T> {
 	resolve: (value: T) => void;
 	reject: (error: Error) => void;
@@ -89,6 +97,8 @@ export class SigmaIframeSigner {
 	private pendingDecryptRequests: Map<string, PendingRequest<string>> =
 		new Map();
 	private pendingGetFriendPubkeyRequests: Map<string, PendingRequest<string>> =
+		new Map();
+	private pendingWalletKeyRequests: Map<string, PendingRequest<string>> =
 		new Map();
 	private initialized = false;
 	private boundMessageHandler: ((event: MessageEvent) => void) | null = null;
@@ -422,6 +432,52 @@ export class SigmaIframeSigner {
 	}
 
 	/**
+	 * Get the encrypted wallet key (current identity key WIF, re-encrypted).
+	 * The iframe re-encrypts the derived key with the user's password.
+	 * The caller must prompt the user for the same password to decrypt it.
+	 */
+	async getWalletKey(): Promise<string> {
+		if (!this.initialized) {
+			await this.init();
+		}
+
+		if (!this.currentBapId) {
+			throw new Error("No identity set. Call setIdentity() first.");
+		}
+
+		const contentWindow = this.iframe?.contentWindow;
+		if (!contentWindow) {
+			throw new Error("Sigma iframe not accessible");
+		}
+
+		// Ensure identity is set
+		contentWindow.postMessage(
+			{ type: "SET_IDENTITY", payload: { bapId: this.currentBapId } },
+			this.sigmaUrl,
+		);
+
+		const requestId = `wkey_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+		return new Promise<string>((resolve, reject) => {
+			const timeout = setTimeout(() => {
+				this.pendingWalletKeyRequests.delete(requestId);
+				reject(new Error("Wallet key request timeout"));
+			}, 30000);
+
+			this.pendingWalletKeyRequests.set(requestId, {
+				resolve,
+				reject,
+				timeout,
+			});
+
+			contentWindow.postMessage(
+				{ type: "GET_WALLET_KEY_REQUEST", payload: { requestId } },
+				this.sigmaUrl,
+			);
+		});
+	}
+
+	/**
 	 * Handle messages from Sigma iframe
 	 */
 	private handleMessage(event: MessageEvent): void {
@@ -545,6 +601,25 @@ export class SigmaIframeSigner {
 				}
 				break;
 			}
+
+			case "GET_WALLET_KEY_RESPONSE": {
+				const response = payload as GetWalletKeyResponse;
+				const pending = this.pendingWalletKeyRequests.get(
+					response.requestId,
+				);
+				if (pending) {
+					clearTimeout(pending.timeout);
+					this.pendingWalletKeyRequests.delete(response.requestId);
+					if (response.error) {
+						pending.reject(new Error(response.error));
+					} else if (response.encryptedWalletKey) {
+						pending.resolve(response.encryptedWalletKey);
+					} else {
+						pending.reject(new Error("No wallet key returned"));
+					}
+				}
+				break;
+			}
 		}
 	}
 
@@ -581,6 +656,12 @@ export class SigmaIframeSigner {
 			pending.reject(error);
 		}
 		this.pendingGetFriendPubkeyRequests.clear();
+
+		for (const [, pending] of this.pendingWalletKeyRequests) {
+			clearTimeout(pending.timeout);
+			pending.reject(error);
+		}
+		this.pendingWalletKeyRequests.clear();
 	}
 
 	/**
