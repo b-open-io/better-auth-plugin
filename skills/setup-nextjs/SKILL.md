@@ -368,6 +368,15 @@ cat node_modules/@sigma-auth/better-auth-plugin/package.json | grep version
 - **Wallet Unlock Gate**: Plugin ensures wallet access before authentication (session -> local backup -> cloud backup -> signup).
 - **PKCE**: The client plugin automatically handles PKCE (Proof Key for Code Exchange) for secure OAuth flows.
 
+## BRC-100 Wallet Compatibility
+
+BAP key derivation uses **BRC-42 (Type42 BKDS)** and **BRC-43 (security levels, protocol IDs)** — the same key derivation primitives as the BRC-100 unified wallet standard. This means:
+
+- BAP identities are compatible with any BRC-100 conformant wallet
+- The signing key invoice number follows BRC-43 format: `{securityLevel}-{protocolID}-{keyID}`
+- Future embedded wallet support will use `@bsv/wallet-toolbox` (BRC-100 reference implementation)
+- BRC-52 identity certificates can attest attributes about BAP identities
+
 ## Reference
 
 Full documentation: https://github.com/b-open-io/better-auth-plugin

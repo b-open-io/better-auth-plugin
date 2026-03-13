@@ -540,6 +540,26 @@ import { verifyMessage } from 'bitcoin-auth';
 const result = await verifyMessage({ message, signature, publicKey });
 ```
 
+## Strategic Context
+
+### Competitive Positioning
+Sigma Identity is the **only product that is both a full OAuth 2.0 provider AND self-sovereign non-custodial**. Competitors like Privy, Dynamic, and Web3Auth are custodial wallet SDKs that consume OAuth — they cannot BE an identity provider. Agent identity protocols (SIWA/ERC-8004, AIP) have no OAuth bridge to web2. This is Sigma's moat.
+
+### BRC-100 Alignment
+BAP key derivation uses BRC-42 (Type42 BKDS) and BRC-43 (security levels, protocol IDs) — the same primitives as the BRC-100 wallet standard. BAP is compatible with BRC-52 identity certificates and can serve as a BRC-68 trust anchor certifier at `sigmaidentity.com/manifest.json`.
+
+### did:bap W3C DID Method
+BAP's PROTOCOL.md defines a provisional W3C DID method: `did:bap:id:<identityKey>` using `EcdsaSecp256k1VerificationKey2019`. Supports key rotation in the DID document. Implementation (resolver endpoint + W3C registration) is planned.
+
+### Agent Identity
+Agents authenticate via the Device Authorization Flow (RFC 8628) to receive BAP-linked OAuth tokens. Member key delegation allows agents to sign on behalf of their owner. ClawNet provides trust scoring (0-100) based on BAP attestation history, enabling graduated autonomy levels for agents.
+
+### Selective Disclosure
+BAP ATTEST puts only `SHA256(URN)` on-chain. The actual attribute data (name, value, nonce) stays private until the user shares the full URN with a verifier. The nonce prevents dictionary attacks. ALIAS (public profile) is separate and optional. This is hash-based selective disclosure — different from BRC-52's encryption-based keyrings but achieving the same privacy goal.
+
+### Known Gap: Embedded Wallet
+Currently requires users to bring their own key (backup file upload). Planned: embedded wallet that creates a BAP identity on signup using BRC-100 conformant `@bsv/wallet-toolbox`, with PRF/passkey key storage. This will close the biggest onboarding gap vs Privy/Dynamic.
+
 ## Pre-Task Contract
 
 Before beginning any auth implementation or debugging task, state:

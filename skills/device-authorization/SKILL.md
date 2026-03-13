@@ -220,6 +220,28 @@ async function deviceAuth() {
 - No client_secret required - security comes from user approval
 - User must explicitly approve on auth.sigmaidentity.com
 
+## Agent Identity Use Case
+
+The device authorization flow is the primary mechanism for **AI agent authentication**. Agents (Claude Code bots, autonomous services, CLI tools) cannot handle browser redirects but need verifiable BAP identities.
+
+### How It Works for Agents
+
+1. **Agent requests device code** — the agent process calls the device endpoint programmatically
+2. **Human owner approves** — the owner authenticates at `/device` with their BAP identity and approves the agent
+3. **Agent receives OAuth token** — the token contains BAP claims (`bap_id`, `pubkey`) linking the agent to the owner's identity
+4. **Member key delegation** — the agent operates with a derived member key, not the owner's master key
+5. **Agent authenticates to services** — standard OAuth token accepted by any app that trusts Sigma
+
+### ClawNet Trust Scoring
+
+ClawNet queries the agent's BAP identity to compute a trust score (0-100) based on:
+- **Attestation history** — how long the identity has been active on-chain
+- **Skill signatures** — AIP-signed skill attestations from verified authors
+- **Cross-attestation** — endorsements from other trusted identities
+- **Version continuity** — consistent identity across updates
+
+Higher trust scores enable greater agent autonomy: more skills, higher spending limits, less human-in-the-loop approval required.
+
 ## Tauri/Desktop Integration
 
 For Tauri apps, use the shell plugin to open the browser:
