@@ -5,7 +5,7 @@ import type { JWTPayload, User } from "better-auth";
  * Stored in profile.profile JSONB column
  */
 export interface BAPProfile {
-	idKey: string; // BAP identity key (e.g. "A4PYmuKGG61WCjjBaRpuSEbqytG")
+	bapId: string; // BAP identity key (e.g. "A4PYmuKGG61WCjjBaRpuSEbqytG")
 	rootAddress: string; // Root Bitcoin address
 	currentAddress?: string; // Current Bitcoin address
 	addresses?: Array<{ address: string; txId: string; block: number }>; // Historical addresses

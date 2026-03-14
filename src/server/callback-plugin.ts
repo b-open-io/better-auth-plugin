@@ -10,8 +10,8 @@ import { exchangeCodeForTokens } from "./index.js";
  * All values fall back to environment variables if not provided
  */
 export interface SigmaCallbackOptions {
-	/** Member private key (WIF) for signing token exchange. Default: SIGMA_MEMBER_PRIVATE_KEY env */
-	memberPrivateKey?: string;
+	/** Account private key (WIF) for signing token exchange. Default: SIGMA_MEMBER_PRIVATE_KEY env */
+	accountPrivateKey?: string;
 	/** OAuth client ID. Default: NEXT_PUBLIC_SIGMA_CLIENT_ID env */
 	clientId?: string;
 	/** Sigma Auth server URL. Default: NEXT_PUBLIC_SIGMA_AUTH_URL or https://auth.sigmaidentity.com */
@@ -45,7 +45,7 @@ export interface SigmaCallbackOptions {
  *
  * // Standalone
  * export const auth = betterAuth({
- *   plugins: [sigmaCallbackPlugin({ memberPrivateKey: "..." })],
+ *   plugins: [sigmaCallbackPlugin({ accountPrivateKey: "..." })],
  * });
  * ```
  */
@@ -68,9 +68,9 @@ export function sigmaCallbackPlugin(
 				},
 				async (ctx) => {
 					// 1. Read config from options or env vars
-					const memberPrivateKey =
-						options?.memberPrivateKey || process.env.SIGMA_MEMBER_PRIVATE_KEY;
-					if (!memberPrivateKey) {
+					const accountPrivateKey =
+						options?.accountPrivateKey || process.env.SIGMA_MEMBER_PRIVATE_KEY;
+					if (!accountPrivateKey) {
 						throw new APIError("INTERNAL_SERVER_ERROR", {
 							message: "SIGMA_MEMBER_PRIVATE_KEY not configured",
 						});
@@ -130,7 +130,7 @@ export function sigmaCallbackPlugin(
 						code: ctx.body.code,
 						redirectUri,
 						clientId,
-						memberPrivateKey,
+						accountPrivateKey,
 						codeVerifier: ctx.body.code_verifier,
 						issuerUrl,
 					});
@@ -148,7 +148,7 @@ export function sigmaCallbackPlugin(
 						bap = result.user.bap ?? null;
 					}
 
-					const bapId = result.user.bap_id || bap?.idKey;
+					const bapId = result.user.bap_id || bap?.bapId;
 
 					console.log(
 						"[Sigma Callback Plugin] Token exchange success: sub=%s, bapId=%s",

@@ -23,7 +23,7 @@ export interface TokenExchangeOptions {
 	code: string;
 	redirectUri: string;
 	clientId: string;
-	memberPrivateKey: string;
+	accountPrivateKey: string;
 	codeVerifier?: string;
 	issuerUrl?: string;
 }
@@ -74,7 +74,7 @@ export interface OAuth2TokenResponse {
  *   code: "authorization_code",
  *   redirectUri: "https://myapp.com/callback",
  *   clientId: "my-app",
- *   memberPrivateKey: process.env.SIGMA_MEMBER_PRIVATE_KEY,
+ *   accountPrivateKey: process.env.SIGMA_MEMBER_PRIVATE_KEY,
  * });
  * ```
  */
@@ -85,7 +85,7 @@ export async function exchangeCodeForTokens(
 		code,
 		redirectUri,
 		clientId,
-		memberPrivateKey,
+		accountPrivateKey,
 		codeVerifier,
 		issuerUrl = "https://auth.sigmaidentity.com",
 	} = options;
@@ -108,7 +108,7 @@ export async function exchangeCodeForTokens(
 	// CRITICAL: Must include body in signature to prevent request tampering
 	// Path must match what the server expects: /api/auth/oauth2/token
 	const authToken = getAuthToken({
-		privateKeyWif: memberPrivateKey,
+		privateKeyWif: accountPrivateKey,
 		requestPath: "/api/auth/oauth2/token",
 		body: requestBody,
 	});

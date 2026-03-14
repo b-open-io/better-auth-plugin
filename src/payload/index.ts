@@ -68,8 +68,8 @@ export interface PayloadCallbackConfig {
 	/** OAuth client ID (default: NEXT_PUBLIC_SIGMA_CLIENT_ID) */
 	clientId?: string;
 
-	/** Member private key for signing (default: SIGMA_MEMBER_PRIVATE_KEY env) */
-	memberPrivateKey?: string;
+	/** Account private key for signing (default: SIGMA_MEMBER_PRIVATE_KEY env) */
+	accountPrivateKey?: string;
 
 	/** Callback path (default: /auth/sigma/callback) */
 	callbackPath?: string;
@@ -171,9 +171,9 @@ export function createPayloadCallbackHandler(config: PayloadCallbackConfig) {
 			}
 
 			// Get configuration from env or config
-			const memberPrivateKey =
-				config.memberPrivateKey || process.env.SIGMA_MEMBER_PRIVATE_KEY;
-			if (!memberPrivateKey) {
+			const accountPrivateKey =
+				config.accountPrivateKey || process.env.SIGMA_MEMBER_PRIVATE_KEY;
+			if (!accountPrivateKey) {
 				console.error(
 					"[Sigma Payload Callback] SIGMA_MEMBER_PRIVATE_KEY not configured",
 				);
@@ -230,7 +230,7 @@ export function createPayloadCallbackHandler(config: PayloadCallbackConfig) {
 				code,
 				redirectUri,
 				clientId,
-				memberPrivateKey,
+				accountPrivateKey,
 				codeVerifier: code_verifier,
 				issuerUrl,
 			});
