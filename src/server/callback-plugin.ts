@@ -148,7 +148,7 @@ export function sigmaCallbackPlugin(
 						bap = result.user.bap ?? null;
 					}
 
-					const bapId = result.user.bap_id || bap?.bapId;
+					const bapId = result.user.bap_id || bap?.idKey;
 
 					console.log(
 						"[Sigma Callback Plugin] Token exchange success: sub=%s, bapId=%s",

@@ -294,7 +294,7 @@ async function resolveUserRoles(
 		}
 
 		// Check admin BAP IDs (dynamic admin based on BAP identity)
-		if (bap?.bapId && options.adminBAPIds?.includes(bap.bapId)) {
+		if (bap?.idKey && options.adminBAPIds?.includes(bap.idKey)) {
 			if (!roles.includes("admin")) {
 				roles.push("admin");
 			}

@@ -418,7 +418,7 @@ export function createBetterAuthCallbackHandler(
 			const bapId =
 				result.user.bap_id ||
 				(typeof result.user.bap === "object"
-					? result.user.bap?.bapId
+					? result.user.bap?.idKey
 					: undefined);
 			console.log(
 				`[Sigma BA Callback] Token exchange success: name=${result.user.name}, bapId=${bapId?.substring(0, 20) || "none"}`,
