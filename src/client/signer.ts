@@ -604,9 +604,7 @@ export class SigmaIframeSigner {
 
 			case "GET_WALLET_KEY_RESPONSE": {
 				const response = payload as GetWalletKeyResponse;
-				const pending = this.pendingWalletKeyRequests.get(
-					response.requestId,
-				);
+				const pending = this.pendingWalletKeyRequests.get(response.requestId);
 				if (pending) {
 					clearTimeout(pending.timeout);
 					this.pendingWalletKeyRequests.delete(response.requestId);

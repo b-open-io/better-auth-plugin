@@ -839,11 +839,12 @@ export const sigmaProvider = (
 
 							// Ensure a Better Auth organization exists for this BAP identity.
 							// Each BAP identity maps to an organization with the user as sole owner.
-							const existingOrg =
-								await ctx.context.adapter.findOne<{ id: string }>({
-									model: "organization",
-									where: [{ field: "id", value: bapId }],
-								});
+							const existingOrg = await ctx.context.adapter.findOne<{
+								id: string;
+							}>({
+								model: "organization",
+								where: [{ field: "id", value: bapId }],
+							});
 							if (!existingOrg) {
 								await ctx.context.adapter.create({
 									model: "organization",
@@ -952,11 +953,12 @@ export const sigmaProvider = (
 					// sent a bapId (new identity not yet on-chain), ensure the org exists.
 					const clientBapId = ctx.body?.bapId;
 					if (clientBapId) {
-						const existingOrg =
-							await ctx.context.adapter.findOne<{ id: string }>({
-								model: "organization",
-								where: [{ field: "id", value: clientBapId }],
-							});
+						const existingOrg = await ctx.context.adapter.findOne<{
+							id: string;
+						}>({
+							model: "organization",
+							where: [{ field: "id", value: clientBapId }],
+						});
 						if (!existingOrg) {
 							await ctx.context.adapter.create({
 								model: "organization",
