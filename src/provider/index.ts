@@ -837,6 +837,40 @@ export const sigmaProvider = (
 								`BAP ID resolved and registered: ${bapId.substring(0, 20)}...`,
 							);
 
+							// Ensure organization + member records exist for this BAP identity.
+							// Each BAP identity maps to an organization with the user as sole owner.
+							// Uses the adapter directly (same as user creation) with id = bapId
+							// to match the convention established by migration 013.
+							const existingOrg = await ctx.context.adapter.findOne<{
+								id: string;
+							}>({
+								model: "organization",
+								where: [{ field: "id", value: bapId }],
+							});
+							if (!existingOrg) {
+								await ctx.context.adapter.create({
+									model: "organization",
+									data: {
+										id: bapId,
+										name: user.name || bapId,
+										slug: bapId,
+										createdAt: new Date(),
+									},
+								});
+								await ctx.context.adapter.create({
+									model: "member",
+									data: {
+										organizationId: bapId,
+										userId: user.id,
+										role: "owner",
+										createdAt: new Date(),
+									},
+								});
+								debug.log(
+									`Created organization for BAP ID: ${bapId.substring(0, 20)}...`,
+								);
+							}
+
 							// Update user record with profile data from profile table
 							const selectedBapId = ctx.body?.bapId;
 							let profileResult: {
@@ -914,6 +948,41 @@ export const sigmaProvider = (
 							if (updatedUsers[0]) {
 								user = updatedUsers[0];
 							}
+						}
+					}
+
+					// If resolveBAPId didn't run or returned null, but the client
+					// sent a bapId (new identity not yet on-chain), ensure the org exists.
+					const clientBapId = ctx.body?.bapId;
+					if (clientBapId) {
+						const existingOrg = await ctx.context.adapter.findOne<{
+							id: string;
+						}>({
+							model: "organization",
+							where: [{ field: "id", value: clientBapId }],
+						});
+						if (!existingOrg) {
+							await ctx.context.adapter.create({
+								model: "organization",
+								data: {
+									id: clientBapId,
+									name: user.name || clientBapId,
+									slug: clientBapId,
+									createdAt: new Date(),
+								},
+							});
+							await ctx.context.adapter.create({
+								model: "member",
+								data: {
+									organizationId: clientBapId,
+									userId: user.id,
+									role: "owner",
+									createdAt: new Date(),
+								},
+							});
+							debug.log(
+								`Created organization from client bapId: ${clientBapId.substring(0, 20)}...`,
+							);
 						}
 					}
 
