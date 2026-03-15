@@ -50,8 +50,9 @@ The `sigmaProvider()` plugin validates OAuth token exchange:
 
 1. Before `/oauth2/token` hook validates bitcoin-auth signature on X-Auth-Token header
 2. Verifies pubkey matches client's registered memberPubkey in metadata
-3. After hooks store selectedBapId in consent and access token records
-4. Supports BAP ID resolution via optional `resolveBAPId` callback
+3. BAP ID flows via Better Auth's organization plugin: `organization.setActive()` sets `session.activeOrganizationId`, which `postLogin.consentReferenceId` reads and Better Auth stores as `oauthAccessToken.referenceId`
+4. Organizations are created server-side in the `signInSigma` handler (one org per BAP ID, with id = bapId). The client-side `organization.create()` API is NOT used.
+5. Supports BAP ID resolution via optional `resolveBAPId` callback
 
 ### Admin Plugin
 
