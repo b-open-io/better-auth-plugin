@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.0.81
+
+### Breaking Changes
+- **Config rename**: `memberPrivateKey` → `accountPrivateKey` in `TokenExchangeOptions`, `CallbackRouteConfig`, `SigmaCallbackOptions`, and `PayloadCallbackConfig`. The environment variable `SIGMA_MEMBER_PRIVATE_KEY` is unchanged.
+
+### Added
+- **`getWalletKey()` on `SigmaIframeSigner`**: New iframe message protocol (`GET_WALLET_KEY_REQUEST`/`GET_WALLET_KEY_RESPONSE`) to retrieve the encrypted wallet key. The iframe re-encrypts the derived key with the user's password.
+- **`createBapOrganization()` helper**: Exported wrapper around Better Auth's `organization()` plugin configured for BAP identities — no invitations, single member, owner role.
+- **Organization creation in `signInSigma`**: When a BAP ID is resolved or client-sent, the provider now creates `organization` + `member` records via adapter with `id = bapId`, matching the convention established by migration 013.
+
+### Fixed
+- **`BAPProfile.idKey` restored**: Reverted `bapId` back to `idKey` to match the BAP overlay wire format.
+- **Biome config**: Updated schema reference to 2.4.6.
+
 ## 0.0.76
 
 ### Added
