@@ -1,7 +1,7 @@
 import type { JWTPayload, User } from "better-auth";
 
 /**
- * BAP Profile structure from api.sigmaidentity.com
+ * BAP Profile structure from sigma.1sat.app
  * Stored in profile.profile JSONB column
  */
 export interface BAPProfile {
@@ -32,7 +32,7 @@ export interface BAPProfile {
  *
  * Custom claims:
  * - pubkey: Bitcoin public key for this identity
- * - bap: Full BAP identity from api.sigmaidentity.com/blockchain
+ * - bap: Full BAP identity from sigma.1sat.app/blockchain
  */
 export interface SigmaUserInfo extends Omit<User, "id"> {
 	// OIDC standard claims
