@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.82
+
+### Added
+- **Error logging in `signInSigma`**: Top-level try/catch with debug.error logging for unhandled exceptions, including stack traces.
+
 ## 0.0.81
 
 ### Breaking Changes

@@ -698,316 +698,324 @@ export const sigmaProvider = (
 					),
 				},
 				async (ctx) => {
-					// Debug logging for sign-in request
-					const allHeaders: Record<string, string> = {};
-					ctx.headers?.forEach((value, key) => {
-						allHeaders[key] =
-							key.toLowerCase() === "x-auth-token"
-								? `${value.substring(0, 20)}...` // Truncate sensitive token
-								: value;
-					});
-					debug.log("Sign-in request received", {
-						headers: allHeaders,
-						body: ctx.body,
-						hasAuthToken: !!ctx.headers?.get("x-auth-token"),
-					});
-
-					// Get auth token from header
-					const authToken = ctx.headers?.get("x-auth-token");
-					if (!authToken) {
-						throw new APIError("UNAUTHORIZED", {
-							message: "No auth token provided",
+					try {
+						// Debug logging for sign-in request
+						const allHeaders: Record<string, string> = {};
+						ctx.headers?.forEach((value, key) => {
+							allHeaders[key] =
+								key.toLowerCase() === "x-auth-token"
+									? `${value.substring(0, 20)}...` // Truncate sensitive token
+									: value;
 						});
-					}
-
-					// Parse the auth token
-					const parsed = parseAuthToken(authToken);
-					if (!parsed?.pubkey) {
-						throw new APIError("BAD_REQUEST", {
-							message: "Invalid auth token format",
+						debug.log("Sign-in request received", {
+							headers: allHeaders,
+							body: ctx.body,
+							hasAuthToken: !!ctx.headers?.get("x-auth-token"),
 						});
-					}
 
-					// Verify the auth token
-					const verifyData = {
-						requestPath: "/api/auth/sign-in/sigma",
-						timestamp: parsed.timestamp,
-					};
-
-					const isValid = verifyAuthToken(authToken, verifyData, 5);
-
-					if (!isValid) {
-						throw new APIError("UNAUTHORIZED", {
-							message: "Invalid auth token signature",
-						});
-					}
-
-					// Extract pubkey from the parsed token
-					const pubkey = parsed.pubkey;
-
-					// Find or create user by pubkey
-					interface UserWithPubkey extends User {
-						pubkey: string;
-					}
-
-					// Try to find user by pubkey first
-					const users = await ctx.context.adapter.findMany<UserWithPubkey>({
-						model: "user",
-						where: [{ field: "pubkey", value: pubkey }],
-					});
-
-					let user = users[0] as UserWithPubkey | undefined;
-
-					// If not found by user.pubkey, check profile table for member_pubkey
-					if (!user && options?.getPool) {
-						const pool = options.getPool();
-						// Use pool.query() directly to avoid connect/release pattern
-						const profileResult = await pool.query<{ user_id: string }>(
-							"SELECT user_id FROM profile WHERE member_pubkey = $1 LIMIT 1",
-							[pubkey],
-						);
-
-						const profileRow = profileResult.rows[0];
-						if (profileRow) {
-							const userId = profileRow.user_id;
-
-							// Fetch the user record
-							const foundUsers =
-								await ctx.context.adapter.findMany<UserWithPubkey>({
-									model: "user",
-									where: [{ field: "id", value: userId }],
-								});
-							user = foundUsers[0] as UserWithPubkey | undefined;
+						// Get auth token from header
+						const authToken = ctx.headers?.get("x-auth-token");
+						if (!authToken) {
+							throw new APIError("UNAUTHORIZED", {
+								message: "No auth token provided",
+							});
 						}
-					}
 
-					if (!user) {
-						// Create new user with pubkey (no email)
-						try {
-							user = (await ctx.context.adapter.create({
-								model: "user",
-								data: {
-									name: PublicKey.fromString(pubkey).toAddress(),
-									pubkey,
-									emailVerified: false,
-									createdAt: new Date(),
-									updatedAt: new Date(),
-								},
-							})) as UserWithPubkey;
-						} catch (error: unknown) {
-							// If duplicate key error, try to find the user again by pubkey
-							if (
-								error &&
-								typeof error === "object" &&
-								"code" in error &&
-								error.code === "23505"
-							) {
-								const existingUsers =
-									await ctx.context.adapter.findMany<UserWithPubkey>({
-										model: "user",
-										where: [{ field: "pubkey", value: pubkey }],
-									});
-
-								user = existingUsers[0] as UserWithPubkey | undefined;
-
-								if (!user) {
-									throw new APIError("INTERNAL_SERVER_ERROR", {
-										message: "User exists but cannot be found",
-									});
-								}
-							} else {
-								throw error;
-							}
+						// Parse the auth token
+						const parsed = parseAuthToken(authToken);
+						if (!parsed?.pubkey) {
+							throw new APIError("BAD_REQUEST", {
+								message: "Invalid auth token format",
+							});
 						}
-					}
 
-					// Resolve BAP ID if resolver is provided
-					if (options?.resolveBAPId && options?.getPool) {
-						const pool = options.getPool();
+						// Verify the auth token
+						const verifyData = {
+							requestPath: "/api/auth/sign-in/sigma",
+							timestamp: parsed.timestamp,
+						};
 
-						const bapId = await options.resolveBAPId(
-							pool,
-							user.id,
-							pubkey,
-							true,
-						);
+						const isValid = verifyAuthToken(authToken, verifyData, 5);
 
-						if (bapId) {
-							debug.log(
-								`BAP ID resolved and registered: ${bapId.substring(0, 20)}...`,
+						if (!isValid) {
+							throw new APIError("UNAUTHORIZED", {
+								message: "Invalid auth token signature",
+							});
+						}
+
+						// Extract pubkey from the parsed token
+						const pubkey = parsed.pubkey;
+
+						// Find or create user by pubkey
+						interface UserWithPubkey extends User {
+							pubkey: string;
+						}
+
+						// Try to find user by pubkey first
+						const users = await ctx.context.adapter.findMany<UserWithPubkey>({
+							model: "user",
+							where: [{ field: "pubkey", value: pubkey }],
+						});
+
+						let user = users[0] as UserWithPubkey | undefined;
+
+						// If not found by user.pubkey, check profile table for member_pubkey
+						if (!user && options?.getPool) {
+							const pool = options.getPool();
+							// Use pool.query() directly to avoid connect/release pattern
+							const profileResult = await pool.query<{ user_id: string }>(
+								"SELECT user_id FROM profile WHERE member_pubkey = $1 LIMIT 1",
+								[pubkey],
 							);
 
-							// Ensure organization + member records exist for this BAP identity.
-							// Each BAP identity maps to an organization with the user as sole owner.
-							// Uses the adapter directly (same as user creation) with id = bapId
-							// to match the convention established by migration 013.
+							const profileRow = profileResult.rows[0];
+							if (profileRow) {
+								const userId = profileRow.user_id;
+
+								// Fetch the user record
+								const foundUsers =
+									await ctx.context.adapter.findMany<UserWithPubkey>({
+										model: "user",
+										where: [{ field: "id", value: userId }],
+									});
+								user = foundUsers[0] as UserWithPubkey | undefined;
+							}
+						}
+
+						if (!user) {
+							// Create new user with pubkey (no email)
+							try {
+								user = (await ctx.context.adapter.create({
+									model: "user",
+									data: {
+										name: PublicKey.fromString(pubkey).toAddress(),
+										pubkey,
+										emailVerified: false,
+										createdAt: new Date(),
+										updatedAt: new Date(),
+									},
+								})) as UserWithPubkey;
+							} catch (error: unknown) {
+								// If duplicate key error, try to find the user again by pubkey
+								if (
+									error &&
+									typeof error === "object" &&
+									"code" in error &&
+									error.code === "23505"
+								) {
+									const existingUsers =
+										await ctx.context.adapter.findMany<UserWithPubkey>({
+											model: "user",
+											where: [{ field: "pubkey", value: pubkey }],
+										});
+
+									user = existingUsers[0] as UserWithPubkey | undefined;
+
+									if (!user) {
+										throw new APIError("INTERNAL_SERVER_ERROR", {
+											message: "User exists but cannot be found",
+										});
+									}
+								} else {
+									throw error;
+								}
+							}
+						}
+
+						// Resolve BAP ID if resolver is provided
+						if (options?.resolveBAPId && options?.getPool) {
+							const pool = options.getPool();
+
+							const bapId = await options.resolveBAPId(
+								pool,
+								user.id,
+								pubkey,
+								true,
+							);
+
+							if (bapId) {
+								debug.log(
+									`BAP ID resolved and registered: ${bapId.substring(0, 20)}...`,
+								);
+
+								// Ensure organization + member records exist for this BAP identity.
+								// Each BAP identity maps to an organization with the user as sole owner.
+								// Uses the adapter directly (same as user creation) with id = bapId
+								// to match the convention established by migration 013.
+								const existingOrg = await ctx.context.adapter.findOne<{
+									id: string;
+								}>({
+									model: "organization",
+									where: [{ field: "id", value: bapId }],
+								});
+								if (!existingOrg) {
+									await ctx.context.adapter.create({
+										model: "organization",
+										data: {
+											id: bapId,
+											name: user.name || bapId,
+											slug: bapId,
+											createdAt: new Date(),
+										},
+									});
+									await ctx.context.adapter.create({
+										model: "member",
+										data: {
+											organizationId: bapId,
+											userId: user.id,
+											role: "owner",
+											createdAt: new Date(),
+										},
+									});
+									debug.log(
+										`Created organization for BAP ID: ${bapId.substring(0, 20)}...`,
+									);
+								}
+
+								// Update user record with profile data from profile table
+								const selectedBapId = ctx.body?.bapId;
+								let profileResult: {
+									rows: Array<{
+										bap_id: string;
+										name: string;
+										image: string | null;
+										member_pubkey: string | null;
+									}>;
+								};
+
+								if (selectedBapId) {
+									// Query profile for selected identity
+									// Use pool.query() directly to avoid connect/release pattern
+									profileResult = await pool.query<{
+										bap_id: string;
+										name: string;
+										image: string | null;
+										member_pubkey: string | null;
+									}>(
+										"SELECT bap_id, name, image, member_pubkey FROM profile WHERE bap_id = $1 AND user_id = $2 LIMIT 1",
+										[selectedBapId, user.id],
+									);
+								} else {
+									// Query for primary profile
+									profileResult = await pool.query<{
+										bap_id: string;
+										name: string;
+										image: string | null;
+										member_pubkey: string | null;
+									}>(
+										"SELECT bap_id, name, image, member_pubkey FROM profile WHERE user_id = $1 AND is_primary = true LIMIT 1",
+										[user.id],
+									);
+								}
+
+								const selectedProfile = profileResult.rows[0];
+								if (selectedProfile) {
+									// Only store URL-based images in user record.
+									// Data URIs (base64 images) are too large for session cookies
+									// and cause 494 REQUEST_HEADER_TOO_LARGE errors on Vercel.
+									// Profile images are served via OIDC userinfo claims instead.
+									const safeImage =
+										selectedProfile.image &&
+										!selectedProfile.image.startsWith("data:")
+											? selectedProfile.image
+											: null;
+									if (selectedProfile.image && !safeImage) {
+										debug.warn(
+											`Skipping data URI image for user ${user.id.substring(0, 15)}... (${selectedProfile.image.length} bytes). ` +
+												"Data URI images are too large for session cookies. Use a URL instead.",
+										);
+									}
+									// Update user record with profile data
+									await ctx.context.adapter.update({
+										model: "user",
+										where: [{ field: "id", value: user.id }],
+										update: {
+											name: selectedProfile.name,
+											image: safeImage,
+											...(selectedProfile.member_pubkey && {
+												pubkey: selectedProfile.member_pubkey,
+											}),
+											updatedAt: new Date(),
+										},
+									});
+								}
+
+								// Re-fetch user to get updated profile data
+								const updatedUsers =
+									await ctx.context.adapter.findMany<UserWithPubkey>({
+										model: "user",
+										where: [{ field: "id", value: user.id }],
+									});
+								if (updatedUsers[0]) {
+									user = updatedUsers[0];
+								}
+							}
+						}
+
+						// If resolveBAPId didn't run or returned null, but the client
+						// sent a bapId (new identity not yet on-chain), ensure the org exists.
+						const clientBapId = ctx.body?.bapId;
+						if (clientBapId) {
 							const existingOrg = await ctx.context.adapter.findOne<{
 								id: string;
 							}>({
 								model: "organization",
-								where: [{ field: "id", value: bapId }],
+								where: [{ field: "id", value: clientBapId }],
 							});
 							if (!existingOrg) {
 								await ctx.context.adapter.create({
 									model: "organization",
 									data: {
-										id: bapId,
-										name: user.name || bapId,
-										slug: bapId,
+										id: clientBapId,
+										name: user.name || clientBapId,
+										slug: clientBapId,
 										createdAt: new Date(),
 									},
 								});
 								await ctx.context.adapter.create({
 									model: "member",
 									data: {
-										organizationId: bapId,
+										organizationId: clientBapId,
 										userId: user.id,
 										role: "owner",
 										createdAt: new Date(),
 									},
 								});
 								debug.log(
-									`Created organization for BAP ID: ${bapId.substring(0, 20)}...`,
+									`Created organization from client bapId: ${clientBapId.substring(0, 20)}...`,
 								);
-							}
-
-							// Update user record with profile data from profile table
-							const selectedBapId = ctx.body?.bapId;
-							let profileResult: {
-								rows: Array<{
-									bap_id: string;
-									name: string;
-									image: string | null;
-									member_pubkey: string | null;
-								}>;
-							};
-
-							if (selectedBapId) {
-								// Query profile for selected identity
-								// Use pool.query() directly to avoid connect/release pattern
-								profileResult = await pool.query<{
-									bap_id: string;
-									name: string;
-									image: string | null;
-									member_pubkey: string | null;
-								}>(
-									"SELECT bap_id, name, image, member_pubkey FROM profile WHERE bap_id = $1 AND user_id = $2 LIMIT 1",
-									[selectedBapId, user.id],
-								);
-							} else {
-								// Query for primary profile
-								profileResult = await pool.query<{
-									bap_id: string;
-									name: string;
-									image: string | null;
-									member_pubkey: string | null;
-								}>(
-									"SELECT bap_id, name, image, member_pubkey FROM profile WHERE user_id = $1 AND is_primary = true LIMIT 1",
-									[user.id],
-								);
-							}
-
-							const selectedProfile = profileResult.rows[0];
-							if (selectedProfile) {
-								// Only store URL-based images in user record.
-								// Data URIs (base64 images) are too large for session cookies
-								// and cause 494 REQUEST_HEADER_TOO_LARGE errors on Vercel.
-								// Profile images are served via OIDC userinfo claims instead.
-								const safeImage =
-									selectedProfile.image &&
-									!selectedProfile.image.startsWith("data:")
-										? selectedProfile.image
-										: null;
-								if (selectedProfile.image && !safeImage) {
-									debug.warn(
-										`Skipping data URI image for user ${user.id.substring(0, 15)}... (${selectedProfile.image.length} bytes). ` +
-											"Data URI images are too large for session cookies. Use a URL instead.",
-									);
-								}
-								// Update user record with profile data
-								await ctx.context.adapter.update({
-									model: "user",
-									where: [{ field: "id", value: user.id }],
-									update: {
-										name: selectedProfile.name,
-										image: safeImage,
-										...(selectedProfile.member_pubkey && {
-											pubkey: selectedProfile.member_pubkey,
-										}),
-										updatedAt: new Date(),
-									},
-								});
-							}
-
-							// Re-fetch user to get updated profile data
-							const updatedUsers =
-								await ctx.context.adapter.findMany<UserWithPubkey>({
-									model: "user",
-									where: [{ field: "id", value: user.id }],
-								});
-							if (updatedUsers[0]) {
-								user = updatedUsers[0];
 							}
 						}
-					}
 
-					// If resolveBAPId didn't run or returned null, but the client
-					// sent a bapId (new identity not yet on-chain), ensure the org exists.
-					const clientBapId = ctx.body?.bapId;
-					if (clientBapId) {
-						const existingOrg = await ctx.context.adapter.findOne<{
-							id: string;
-						}>({
-							model: "organization",
-							where: [{ field: "id", value: clientBapId }],
-						});
-						if (!existingOrg) {
-							await ctx.context.adapter.create({
-								model: "organization",
-								data: {
-									id: clientBapId,
-									name: user.name || clientBapId,
-									slug: clientBapId,
-									createdAt: new Date(),
-								},
+						// Create session
+						const session = await ctx.context.internalAdapter.createSession(
+							user.id,
+						);
+
+						if (!session) {
+							throw new APIError("INTERNAL_SERVER_ERROR", {
+								message: "Internal Server Error",
+								status: 500,
 							});
-							await ctx.context.adapter.create({
-								model: "member",
-								data: {
-									organizationId: clientBapId,
-									userId: user.id,
-									role: "owner",
-									createdAt: new Date(),
-								},
-							});
-							debug.log(
-								`Created organization from client bapId: ${clientBapId.substring(0, 20)}...`,
-							);
 						}
-					}
 
-					// Create session
-					const session = await ctx.context.internalAdapter.createSession(
-						user.id,
-					);
+						await setSessionCookie(ctx, { session, user });
 
-					if (!session) {
-						throw new APIError("INTERNAL_SERVER_ERROR", {
-							message: "Internal Server Error",
-							status: 500,
+						return ctx.json({
+							token: session.token,
+							user: {
+								id: user.id,
+								pubkey: user.pubkey,
+								name: user.name,
+							},
 						});
+					} catch (error) {
+						debug.error("signInSigma unhandled error:", error);
+						if (error instanceof Error) {
+							debug.error("Stack:", error.stack);
+						}
+						throw error;
 					}
-
-					await setSessionCookie(ctx, { session, user });
-
-					return ctx.json({
-						token: session.token,
-						user: {
-							id: user.id,
-							pubkey: user.pubkey,
-							name: user.name,
-						},
-					});
 				},
 			),
 		},
