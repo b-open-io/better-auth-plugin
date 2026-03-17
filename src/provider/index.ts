@@ -153,8 +153,15 @@ export interface BapOrganizationOptions {
  */
 async function ensureBapOrganization(
 	adapter: {
-		findOne: <T>(opts: { model: string; where: { field: string; value: string }[] }) => Promise<T | null>;
-		create: (opts: { model: string; data: Record<string, unknown>; forceAllowId?: boolean }) => Promise<unknown>;
+		findOne: <T>(opts: {
+			model: string;
+			where: { field: string; value: string }[];
+		}) => Promise<T | null>;
+		create: (opts: {
+			model: string;
+			data: Record<string, unknown>;
+			forceAllowId?: boolean;
+		}) => Promise<unknown>;
 	},
 	debug: DebugLogger,
 	bapId: string,
@@ -188,9 +195,7 @@ async function ensureBapOrganization(
 			},
 			forceAllowId: true,
 		});
-		debug.log(
-			`Created organization for BAP ID: ${bapId.substring(0, 20)}...`,
-		);
+		debug.log(`Created organization for BAP ID: ${bapId.substring(0, 20)}...`);
 	} catch (error: unknown) {
 		if (
 			error &&
@@ -198,7 +203,9 @@ async function ensureBapOrganization(
 			"code" in error &&
 			error.code === "23505"
 		) {
-			debug.log(`Organization already exists (race): ${bapId.substring(0, 20)}...`);
+			debug.log(
+				`Organization already exists (race): ${bapId.substring(0, 20)}...`,
+			);
 			return;
 		}
 		throw error;
