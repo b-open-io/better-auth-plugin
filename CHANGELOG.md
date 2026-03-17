@@ -1,6 +1,15 @@
 # Changelog
 
-## 0.0.83
+## 0.0.82
+
+### Changed
+- **Extract `ensureBapOrganization` helper**: Deduplicate org/member creation logic from `signInSigma` into a shared function with race condition handling (catches duplicate key errors instead of crashing).
+
+### Fixed
+- **Organization ID preserved on create**: Pass `forceAllowId: true` to adapter create calls so the BAP ID is used as the org ID.
+- **Error logging in `signInSigma`**: Top-level try/catch with debug.error logging for unhandled exceptions.
+
+## 0.0.83 (git only, not published)
 
 ### Fixed
 - **Organization ID preserved on create**: Pass `forceAllowId: true` to adapter create calls for organization and member records so the BAP ID is used as the org ID instead of being replaced by an auto-generated ID.
