@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.83
+
+### Fixed
+- **sigmaAdminPlugin after-hook crash**: The after-hook on `/get-session` returned `undefined`, but Better Auth's `runAfterHooks` unconditionally accesses `result.headers` on the return value. Now returns `{}` from both early-return and normal exit paths.
+
 ## 0.0.82
 
 ### Changed
