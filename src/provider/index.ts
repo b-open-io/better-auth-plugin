@@ -857,6 +857,7 @@ export const sigmaProvider = (
 											slug: bapId,
 											createdAt: new Date(),
 										},
+										forceAllowId: true,
 									});
 									await ctx.context.adapter.create({
 										model: "member",
@@ -866,6 +867,7 @@ export const sigmaProvider = (
 											role: "owner",
 											createdAt: new Date(),
 										},
+										forceAllowId: true,
 									});
 									debug.log(
 										`Created organization for BAP ID: ${bapId.substring(0, 20)}...`,
@@ -971,6 +973,7 @@ export const sigmaProvider = (
 										slug: clientBapId,
 										createdAt: new Date(),
 									},
+									forceAllowId: true,
 								});
 								await ctx.context.adapter.create({
 									model: "member",
@@ -980,6 +983,7 @@ export const sigmaProvider = (
 										role: "owner",
 										createdAt: new Date(),
 									},
+									forceAllowId: true,
 								});
 								debug.log(
 									`Created organization from client bapId: ${clientBapId.substring(0, 20)}...`,

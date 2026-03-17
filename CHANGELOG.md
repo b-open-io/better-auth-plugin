@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.83
+
+### Fixed
+- **Organization ID preserved on create**: Pass `forceAllowId: true` to adapter create calls for organization and member records so the BAP ID is used as the org ID instead of being replaced by an auto-generated ID.
+
 ## 0.0.82
 
 ### Added
