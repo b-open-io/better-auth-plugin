@@ -16,7 +16,7 @@ import {
 	type LocalServerSignerOptions,
 	type SigmaSigner,
 } from "./local-signer.js";
-import { SigmaIframeSigner } from "./signer.js";
+import { SigmaCWISigner } from "./sigma-cwi.js";
 
 // Re-export types for convenience
 export type {
@@ -36,6 +36,7 @@ export type {
 
 // Re-export signer types and classes
 export { LocalServerSigner, type SigmaSigner } from "./local-signer.js";
+export { SigmaCWISigner } from "./sigma-cwi.js";
 export { SigmaIframeSigner } from "./signer.js";
 
 // Re-export organizationClient for consumers using BAP identities as organizations
@@ -112,17 +113,16 @@ const getOrCreateSigner = async (): Promise<SigmaSigner> => {
 		}
 	}
 
-	// Fall back to iframe signer (cloud)
+	// Fall back to CWI signer (cloud iframe via CWI protocol)
 	if (!signer || signerType !== "iframe") {
-		const iframeSigner = new SigmaIframeSigner(getSigmaUrl());
-		signer = iframeSigner;
+		const cwiSigner = new SigmaCWISigner(getSigmaUrl());
+		signer = cwiSigner;
 		signerType = "iframe";
 		serverDetectedCallback?.(getSigmaUrl(), false);
 	}
 
-	const iframeSigner = signer as SigmaIframeSigner;
-	if (!iframeSigner.isReady()) {
-		await iframeSigner.init();
+	if (!signer.isReady()) {
+		await (signer as SigmaCWISigner).init();
 	}
 	return signer;
 };
