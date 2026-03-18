@@ -5,7 +5,7 @@
  * protocol over postMessage to a hidden iframe at the Sigma auth server.
  *
  * Standard wallet operations (encrypt, decrypt, getPublicKey) use CWI calls.
- * Sigma-specific operations (sign, signAIP, getWalletKey) use custom messages
+ * Sigma-specific operations (sign, signAIP) use custom CWI calls
  * since they don't map to standard WalletInterface methods.
  */
 
@@ -328,12 +328,6 @@ export class SigmaCWISigner implements SigmaSigner {
 		});
 
 		return result.publicKey;
-	}
-
-	async getWalletKey(): Promise<string> {
-		await this.ensureReady();
-
-		return this.sendCWI<string>("getWalletKey", {});
 	}
 
 	isReady(): boolean {
