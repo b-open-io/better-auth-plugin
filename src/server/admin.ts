@@ -227,7 +227,7 @@ export const sigmaAdminPlugin = (
 						).context;
 						const session = context?.session;
 						if (!session?.user?.id) {
-							return;
+							return {};
 						}
 
 						try {
@@ -255,6 +255,7 @@ export const sigmaAdminPlugin = (
 							console.error("[Sigma Admin] Error resolving roles:", error);
 							// Don't block session on role resolution failure
 						}
+						return {};
 					},
 				},
 			],

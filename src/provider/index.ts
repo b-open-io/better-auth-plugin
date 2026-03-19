@@ -147,6 +147,72 @@ export interface BapOrganizationOptions {
 }
 
 /**
+ * Ensure an organization + member record exists for a BAP identity.
+ * Each BAP identity maps to an organization with the user as sole owner.
+ * Handles race conditions (duplicate key) gracefully.
+ */
+async function ensureBapOrganization(
+	adapter: {
+		findOne: <T>(opts: {
+			model: string;
+			where: { field: string; value: string }[];
+		}) => Promise<T | null>;
+		create: (opts: {
+			model: string;
+			data: Record<string, unknown>;
+			forceAllowId?: boolean;
+		}) => Promise<unknown>;
+	},
+	debug: DebugLogger,
+	bapId: string,
+	userId: string,
+	userName: string | null,
+) {
+	const existingOrg = await adapter.findOne<{ id: string }>({
+		model: "organization",
+		where: [{ field: "id", value: bapId }],
+	});
+	if (existingOrg) return;
+
+	try {
+		await adapter.create({
+			model: "organization",
+			data: {
+				id: bapId,
+				name: userName || bapId,
+				slug: bapId,
+				createdAt: new Date(),
+			},
+			forceAllowId: true,
+		});
+		await adapter.create({
+			model: "member",
+			data: {
+				organizationId: bapId,
+				userId,
+				role: "owner",
+				createdAt: new Date(),
+			},
+			forceAllowId: true,
+		});
+		debug.log(`Created organization for BAP ID: ${bapId.substring(0, 20)}...`);
+	} catch (error: unknown) {
+		if (
+			error &&
+			typeof error === "object" &&
+			"code" in error &&
+			error.code === "23505"
+		) {
+			debug.log(
+				`Organization already exists (race): ${bapId.substring(0, 20)}...`,
+			);
+			return;
+		}
+		throw error;
+	}
+}
+
+/**
  * Create the organization plugin configured for BAP identities
  *
  * BAP identities are personal - each organization has exactly one owner (the user).
@@ -838,41 +904,13 @@ export const sigmaProvider = (
 									`BAP ID resolved and registered: ${bapId.substring(0, 20)}...`,
 								);
 
-								// Ensure organization + member records exist for this BAP identity.
-								// Each BAP identity maps to an organization with the user as sole owner.
-								// Uses the adapter directly (same as user creation) with id = bapId
-								// to match the convention established by migration 013.
-								const existingOrg = await ctx.context.adapter.findOne<{
-									id: string;
-								}>({
-									model: "organization",
-									where: [{ field: "id", value: bapId }],
-								});
-								if (!existingOrg) {
-									await ctx.context.adapter.create({
-										model: "organization",
-										data: {
-											id: bapId,
-											name: user.name || bapId,
-											slug: bapId,
-											createdAt: new Date(),
-										},
-										forceAllowId: true,
-									});
-									await ctx.context.adapter.create({
-										model: "member",
-										data: {
-											organizationId: bapId,
-											userId: user.id,
-											role: "owner",
-											createdAt: new Date(),
-										},
-										forceAllowId: true,
-									});
-									debug.log(
-										`Created organization for BAP ID: ${bapId.substring(0, 20)}...`,
-									);
-								}
+								await ensureBapOrganization(
+									ctx.context.adapter,
+									debug,
+									bapId,
+									user.id,
+									user.name,
+								);
 
 								// Update user record with profile data from profile table
 								const selectedBapId = ctx.body?.bapId;
@@ -958,37 +996,13 @@ export const sigmaProvider = (
 						// sent a bapId (new identity not yet on-chain), ensure the org exists.
 						const clientBapId = ctx.body?.bapId;
 						if (clientBapId) {
-							const existingOrg = await ctx.context.adapter.findOne<{
-								id: string;
-							}>({
-								model: "organization",
-								where: [{ field: "id", value: clientBapId }],
-							});
-							if (!existingOrg) {
-								await ctx.context.adapter.create({
-									model: "organization",
-									data: {
-										id: clientBapId,
-										name: user.name || clientBapId,
-										slug: clientBapId,
-										createdAt: new Date(),
-									},
-									forceAllowId: true,
-								});
-								await ctx.context.adapter.create({
-									model: "member",
-									data: {
-										organizationId: clientBapId,
-										userId: user.id,
-										role: "owner",
-										createdAt: new Date(),
-									},
-									forceAllowId: true,
-								});
-								debug.log(
-									`Created organization from client bapId: ${clientBapId.substring(0, 20)}...`,
-								);
-							}
+							await ensureBapOrganization(
+								ctx.context.adapter,
+								debug,
+								clientBapId,
+								user.id,
+								user.name,
+							);
 						}
 
 						// Create session

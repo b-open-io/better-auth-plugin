@@ -1,10 +1,29 @@
 # @sigma-auth/better-auth-plugin
 
-Better Auth plugins for Sigma Identity - Bitcoin-native authentication with BAP identity support.
+![Sigma Auth — Bitcoin-Native Authentication for Better Auth](assets/banner.png)
+
+Bitcoin-native authentication for Better Auth. Users sign in with their Bitcoin wallet. Identity is a cryptographic keypair — persistent across apps, controlled only by the user.
+
+Maintained by [Sigma Identity](https://sigmaidentity.com). For support, open an issue on [GitHub](https://github.com/b-open-io/better-auth-plugin/issues).
+
+## Features
+
+- **Passwordless from day one** — Bitcoin wallet signatures replace passwords and magic links
+- **BAP identity support** — Bitcoin Attestation Protocol provides persistent, portable user profiles
+- **PKCE OAuth flow** — Fully spec-compliant authorization code flow with PKCE for public clients
+- **Iframe signer** — Client-side signing without exposing private keys to your app domain
+- **Local signer fallback** — Optional local TokenPass server for offline or privacy-first deployments
+- **NFT-based role gating** — Assign roles based on NFT collection ownership across connected wallets
+- **Token balance gating** — Grant roles when users hold minimum BSV-21 token balances
+- **BAP admin whitelist** — Designate admins by Bitcoin identity key, checked at every session creation
+- **Multi-identity wallets** — Users can select among multiple BAP identities at sign-in
+- **Subscription tiers** — Verified subscription status flows through to your session
+- **Next.js App Router** — Ready-to-use route handlers with a single import
+- **Payload CMS** — Drop-in callback handler with customizable user creation
+- **Convex** — Works inside `@convex-dev/better-auth` with no local auth instance required
+- **Full TypeScript** — All types exported, including `SigmaUserInfo`, `BAPProfile`, and JWT claims
 
 ## Installation
-
-### Package
 
 ```bash
 bun add @sigma-auth/better-auth-plugin
@@ -12,139 +31,40 @@ bun add @sigma-auth/better-auth-plugin
 npm install @sigma-auth/better-auth-plugin
 ```
 
-### Claude Code Plugin
+### Peer dependencies
 
-Install the Claude Code plugin for AI-assisted setup, diagnostics, and troubleshooting:
-
-```bash
-claude plugin install sigma-auth@b-open-io
-```
-
-Or install skills individually:
+Install only what you use:
 
 ```bash
-npx add-skill b-open-io/sigma-auth-better-auth-plugin
+# Required for all integrations
+bun add better-auth
+
+# Required for server-side token exchange
+bun add bitcoin-auth
+
+# Required for the provider plugin (running your own auth server)
+bun add @bsv/sdk bsv-bap @neondatabase/serverless zod
+
+# Required for Payload CMS integration
+bun add payload-auth
 ```
 
-#### Available Skills
+## Quick Start
 
-| Skill | Command | Description |
-|-------|---------|-------------|
-| **setup-nextjs** | `/sigma-auth:setup-nextjs` | Step-by-step Next.js integration guide with project detection, env validation, and health check scripts |
-| **setup-convex** | `/sigma-auth:setup-convex` | Convex + Better Auth integration guide with server plugin configuration |
-| **bitcoin-auth-diagnostics** | `/sigma-auth:bitcoin-auth-diagnostics` | Diagnose token verification failures, signature errors, and integration issues |
-| **tokenpass** | `/sigma-auth:tokenpass` | Token-gated access patterns using NFT ownership verification |
-| **device-authorization** | `/sigma-auth:device-authorization` | Device authorization flow for CLI tools and IoT devices |
+This is the standard setup for an app that authenticates users via Sigma Identity. The whole flow takes under five minutes.
 
-#### Setup Scripts (via setup-nextjs skill)
+### 1. Set environment variables
 
 ```bash
-# Analyze your project and get setup recommendations
-bun run skills/setup-nextjs/scripts/detect.ts /path/to/project
-
-# Validate environment variables
-bun run skills/setup-nextjs/scripts/validate-env.ts
-
-# Test connection to Sigma Auth server
-bun run skills/setup-nextjs/scripts/health-check.ts
-```
-
-## How It Works
-
-The plugin runs **inside your app**, not on the Sigma server. It handles OAuth token exchange and Better Auth integration:
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ Your App (runs on your server/Vercel)                           │
-│                                                                 │
-│  ┌─────────────────────┐    ┌──────────────────────────────┐   │
-│  │ auth-server.ts      │    │ /api/auth/sigma/callback     │   │
-│  │ - betterAuth()      │◄───│ - createBetterAuthCallback   │   │
-│  │ - sigmaProvider()   │    │   Handler({ auth })          │   │
-│  └─────────────────────┘    └──────────────────────────────┘   │
-│           │                              │                      │
-│           ▼                              ▼                      │
-│  ┌─────────────────────┐    ┌──────────────────────────────┐   │
-│  │ Your Database       │    │ @sigma-auth/better-auth-     │   │
-│  │ - users             │◄───│ plugin (this package)        │   │
-│  │ - accounts          │    │                              │   │
-│  │ - sessions          │    │ Exchanges code for tokens,   │   │
-│  └─────────────────────┘    │ creates users/accounts/      │   │
-│                             │ sessions in YOUR database    │   │
-│                             └──────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
-                                       │
-                                       │ OAuth flow
-                                       ▼
-                        ┌──────────────────────────────────┐
-                        │ auth.sigmaidentity.com           │
-                        │ (External Sigma Auth Server)     │
-                        │ - /oauth2/authorize              │
-                        │ - /oauth2/token                  │
-                        │ - /oauth2/userinfo               │
-                        └──────────────────────────────────┘
-```
-
-## Entry Points
-
-This package provides multiple entry points for different use cases:
-
-- **`/client`** - Browser-side OAuth client with PKCE
-- **`/server`** - Server-side utilities for token exchange
-- **`/next`** - Next.js API route handlers
-- **`/payload`** - Payload CMS integration with session management
-- **`/provider`** - Better Auth server plugin for OIDC provider
-
-## Architecture
-
-### OAuth Flow (Cross-Domain)
-
-When your app authenticates with Sigma Identity (or another Better Auth server on a different domain), you use OAuth/OIDC flow with tokens:
-
-1. User clicks sign in → redirects to `auth.sigmaidentity.com`
-2. User authenticates with Bitcoin wallet
-3. Redirects back to your app with authorization code
-4. Your backend exchanges code for access tokens
-5. **Store user data and tokens locally** (Context, Zustand, localStorage, etc.)
-
-**Important:** Cross-domain cookies don't work due to browser security. Better Auth's `useSession` hook only works when the auth server is on the **same domain** as your app. For OAuth clients, you manage authentication state locally with tokens.
-
-### Wallet Unlock Gate
-
-This plugin fronts Better Auth's OIDC authorize endpoint to ensure wallet access is a prerequisite to authentication.
-
-The client redirects to `/oauth2/authorize` (custom gate) instead of `/api/auth/oauth2/authorize` (Better Auth directly). The gate checks:
-
-1. **Session** - If authenticated, proceed immediately
-2. **Local backup** - If encrypted backup exists, prompt for password
-3. **Cloud backup** - If available, redirect to restore
-4. **Signup** - No backup found, create new account
-
-This makes Bitcoin identity the foundation of authentication.
-
-## Choose Your Integration Mode
-
-- **Mode A — OAuth client (cross-domain):** Your app is not the auth server. You handle tokens locally.
-- **Mode B — Same-domain Better Auth server:** You run Better Auth (or proxy to Convex) on your domain and can use sessions.
-
-## Quick Start (Mode A: OAuth Client)
-
-This is the standard setup for apps authenticating with Sigma Identity.
-
-### 1. Environment Variables
-
-```bash
-# Your registered OAuth client ID
-NEXT_PUBLIC_SIGMA_CLIENT_ID=your-app
-
-# Member private key for signing token exchange requests (server-side only)
-SIGMA_MEMBER_PRIVATE_KEY=your-member-wif
-
-# Sigma Auth server URL
+# .env.local
+NEXT_PUBLIC_SIGMA_CLIENT_ID=your-app-id
 NEXT_PUBLIC_SIGMA_AUTH_URL=https://auth.sigmaidentity.com
+SIGMA_MEMBER_PRIVATE_KEY=your-wif-private-key   # server-side only
 ```
 
-### 2. Create Auth Client
+Get your client ID and register your redirect URI at [sigmaidentity.com/developers](https://sigmaidentity.com/developers).
+
+### 2. Configure the auth client
 
 ```typescript
 // lib/auth.ts
@@ -155,14 +75,9 @@ export const authClient = createAuthClient({
   baseURL: process.env.NEXT_PUBLIC_SIGMA_AUTH_URL || "https://auth.sigmaidentity.com",
   plugins: [sigmaClient()],
 });
-
-// Export sign in method for OAuth flow
-export const signIn = authClient.signIn;
 ```
 
-### 3. Token Exchange API Route
-
-This server-side endpoint exchanges the OAuth code for tokens.
+### 3. Add the token exchange route
 
 ```typescript
 // app/api/auth/sigma/callback/route.ts
@@ -172,134 +87,121 @@ export const runtime = "nodejs";
 export const POST = createCallbackHandler();
 ```
 
-### 4. OAuth Callback Page
-
-This page handles the OAuth redirect and stores the authenticated user.
+### 4. Add the OAuth callback page
 
 ```typescript
 // app/auth/sigma/callback/page.tsx
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth";
 
 function CallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const handleCallback = async () => {
-      try {
-        // Exchange code for tokens and get user data
-        const result = await authClient.sigma.handleCallback(searchParams);
-
-        // Store user data in your app's state management
-        // Example: Context, Zustand, localStorage, etc.
+    authClient.sigma.handleCallback(searchParams)
+      .then((result) => {
+        // Store tokens and user data in your state management solution
         localStorage.setItem("sigma_user", JSON.stringify(result.user));
         localStorage.setItem("sigma_access_token", result.access_token);
-        localStorage.setItem("sigma_id_token", result.id_token);
-        if (result.refresh_token) {
-          localStorage.setItem("sigma_refresh_token", result.refresh_token);
-        }
-
-        // Redirect to your app
         router.push("/");
-      } catch (err: any) {
-        console.error("OAuth callback error:", err);
-        setError(err.message || "Authentication failed");
-      }
-    };
-
-    handleCallback();
+      })
+      .catch((err) => {
+        authClient.sigma.redirectToError(err);
+      });
   }, [searchParams, router]);
 
-  if (error) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold text-red-600">Authentication Failed</h2>
-          <p className="mt-2 text-sm text-gray-600">{error}</p>
-          <button
-            onClick={() => router.push("/")}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded"
-          >
-            Return Home
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex min-h-screen items-center justify-center">
-      <div className="text-center">
-        <h2 className="text-xl font-semibold">Completing sign in...</h2>
-        <p className="mt-2 text-sm text-gray-600">Please wait</p>
-      </div>
-    </div>
-  );
+  return <p>Completing sign in...</p>;
 }
 
 export default function CallbackPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<p>Loading...</p>}>
       <CallbackContent />
     </Suspense>
   );
 }
 ```
 
-### 5. Sign In
+### 5. Add a sign-in button
 
 ```typescript
-// In your sign-in button component
-import { signIn } from "@/lib/auth";
+import { authClient } from "@/lib/auth";
 
-const handleSignIn = () => {
-  signIn.sigma({
-    clientId: process.env.NEXT_PUBLIC_SIGMA_CLIENT_ID || "your-app",
-    // callbackURL defaults to /auth/sigma/callback
-  });
-};
-```
-
-### 6. Access User Data
-
-Since you're managing state locally, access user data from your state management solution:
-
-```typescript
-// Example with Context
-import { createContext, useContext, useEffect, useState } from "react";
-
-const AuthContext = createContext<{ user: SigmaUserInfo | null }>({ user: null });
-
-export function AuthProvider({ children }) {
-  const [user, setUser] = useState<SigmaUserInfo | null>(null);
-
-  useEffect(() => {
-    const storedUser = localStorage.getItem("sigma_user");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-  }, []);
-
-  return <AuthContext.Provider value={{ user }}>{children}</AuthContext.Provider>;
+export function SignInButton() {
+  return (
+    <button
+      onClick={() =>
+        authClient.signIn.sigma({
+          clientId: process.env.NEXT_PUBLIC_SIGMA_CLIENT_ID!,
+        })
+      }
+    >
+      Sign in with Bitcoin
+    </button>
+  );
 }
-
-export const useAuth = () => useContext(AuthContext);
-
-// In components
-const { user } = useAuth();
-const isAdmin = user?.bap?.idKey === process.env.ADMIN_BAP_ID;
 ```
 
-## Alternative: Same-Domain Setup
+The user clicks the button, authenticates with their Bitcoin wallet on the Sigma Identity server, and lands back in your app with a `SigmaUserInfo` object containing their pubkey, display name, and BAP identity.
 
-If you run your own Better Auth server on the **same domain** as your app, you can use session cookies and the `useSession` hook. You still need the OAuth callback page (above) to handle the redirect.
+---
 
-### Server Setup (Next.js)
+## Architecture
+
+### How Bitcoin authentication works
+
+Bitcoin auth relies on a cryptographic signature the user produces with a private key that remains in their wallet — the signature is request-specific, timestamped, and covers the request body, so replaying it against a different endpoint or a modified payload fails verification.
+
+The flow:
+
+1. Your app redirects to `auth.sigmaidentity.com/oauth2/authorize` with a PKCE challenge
+2. Sigma's wallet gate checks whether the user has an accessible Bitcoin identity (local backup, cloud backup, or creates one)
+3. The user signs a challenge with their Bitcoin private key
+4. Sigma's Better Auth server validates the signature and issues an authorization code
+5. Your backend exchanges the code for tokens using a Bitcoin-signed request (`X-Auth-Token` header)
+6. You receive an OIDC `id_token`, an `access_token`, and the user's `SigmaUserInfo` including their `pubkey` and BAP identity
+
+The user's identity is their Bitcoin key — stored in their wallet, verifiable cryptographically, and independent of your app's database.
+
+### Signer architecture
+
+The plugin supports two signing backends. Both implement the same `SigmaSigner` interface.
+
+**Iframe signer (default)** — A hidden iframe loads `auth.sigmaidentity.com/signer`. Your app communicates with it via `postMessage`. Private keys stay on the Sigma domain and are never accessible to your JavaScript context. The iframe surfaces a password prompt when the wallet is locked.
+
+**Local signer** — An optional [TokenPass](https://tokenpas.app) desktop application running at `http://localhost:21000`. When `preferLocal: true` is set, the client probes for the local server first and falls back to the iframe if unavailable. This enables fully offline signing.
+
+```typescript
+// Prefer local signer with iframe fallback
+const authClient = createAuthClient({
+  plugins: [
+    sigmaClient({
+      preferLocal: true,
+      localServerUrl: "http://localhost:21000",
+      onServerDetected: (url, isLocal) => {
+        console.log(`Using ${isLocal ? "local" : "cloud"} signer: ${url}`);
+      },
+    }),
+  ],
+});
+```
+
+### Integration modes
+
+| Mode | When to use | Session management |
+|------|-------------|-------------------|
+| **Mode A — OAuth client** | Your app is separate from the auth server (most apps) | Tokens in localStorage or your state management |
+| **Mode B — Same-domain** | You run Better Auth on the same domain as your app | Session cookies + `useSession` hook |
+
+---
+
+## Server configuration (Mode B)
+
+When you run Better Auth on the same domain as your app, use `sigmaCallbackPlugin` to handle the OAuth callback inside Better Auth itself. No separate API route is needed.
 
 ```typescript
 // lib/auth.ts
@@ -319,123 +221,257 @@ import { auth } from "@/lib/auth";
 export const { GET, POST } = toNextJsHandler(auth);
 ```
 
+The client stays identical — `sigmaClient()` detects whether the auth server is on the same domain and routes the callback accordingly.
+
+### Options
+
 ```typescript
-// lib/auth.ts
-export const authClient = createAuthClient({
-  baseURL: "/api/auth", // Same domain
-  plugins: [sigmaClient()],
-});
-
-export const { useSession } = authClient;
-
-// In components
-const { data: session } = useSession();
+sigmaCallbackPlugin({
+  accountPrivateKey?: string;  // Default: SIGMA_MEMBER_PRIVATE_KEY env
+  clientId?: string;           // Default: NEXT_PUBLIC_SIGMA_CLIENT_ID env
+  issuerUrl?: string;          // Default: NEXT_PUBLIC_SIGMA_AUTH_URL env
+  callbackPath?: string;       // Default: "/auth/sigma/callback"
+  emailDomain?: string;        // Default: "sigma.local"
+})
 ```
 
-This requires setting up Better Auth server with the `sigmaCallbackPlugin` on your domain.
+---
 
-## Payload CMS Integration
+## Client API reference
 
-For Payload CMS apps using [payload-auth](https://github.com/b-open-io/payload-auth), the `/payload` entry point provides a callback handler that automatically:
+All methods are available on the object returned by `createAuthClient({ plugins: [sigmaClient()] })`.
 
-1. Exchanges the authorization code for tokens
-2. Finds or creates a user in your Payload users collection
-3. Creates a better-auth session in Payload's sessions collection
-4. Sets the session cookie
+### Authentication
 
-### Setup
+```typescript
+// Redirect to Sigma Identity for sign-in
+authClient.signIn.sigma({
+  clientId: "your-app",
+  callbackURL: "/auth/sigma/callback",    // default
+  errorCallbackURL: "/auth/sigma/error",
+  bapId: "specific-identity-id",          // for multi-identity wallets
+  prompt: "select_account",               // force account selection
+  forceLogin: false,                      // bypass existing session check
+});
+
+// Handle the OAuth redirect in your callback page
+const result = await authClient.sigma.handleCallback(searchParams);
+// result: { user: SigmaUserInfo, access_token, id_token, refresh_token? }
+
+// Redirect to error page with structured error params
+authClient.sigma.redirectToError(caughtError);
+```
+
+### Identity management
+
+```typescript
+// Get the current BAP identity (set automatically after handleCallback)
+const bapId = authClient.sigma.getIdentity(); // string | null
+
+// Manually set identity (for multi-identity scenarios)
+authClient.sigma.setIdentity("bap-identity-id");
+
+// Clear stored identity on logout
+authClient.sigma.clearIdentity();
+
+// Check whether signer is ready
+const ready = authClient.sigma.isReady(); // boolean
+```
+
+### Signing
+
+The signing keys remain on `auth.sigmaidentity.com` — only the resulting signature string is returned to your JavaScript context.
+
+```typescript
+// Sign an API request (returns X-Auth-Token string)
+const authToken = await authClient.sigma.sign("/api/posts", { title: "Hello" });
+fetch("/api/posts", {
+  method: "POST",
+  headers: { "X-Auth-Token": authToken },
+  body: JSON.stringify({ title: "Hello" }),
+});
+
+// Sign OP_RETURN data for Bitcoin transactions (AIP format)
+const signedOps = await authClient.sigma.signAIP(["6a", "..."]);
+
+// Encrypt a message for a specific friend (Type42 key derivation)
+const ciphertext = await authClient.sigma.encrypt(
+  "Hello!",
+  "friend-bap-id",
+  friend.pubkey,         // optional
+);
+
+// Decrypt a message from a friend
+const plaintext = await authClient.sigma.decrypt(
+  ciphertext,
+  "friend-bap-id",
+  sender.pubkey,
+);
+
+// Get your derived public key for a friend (for friend requests)
+const myPubKey = await authClient.sigma.getFriendPublicKey("friend-bap-id");
+```
+
+### Signer detection
+
+```typescript
+const { url, isLocal } = await authClient.sigma.detectServer();
+const signerType = authClient.sigma.getSignerType(); // "local" | "iframe" | null
+```
+
+### Wallet management
+
+```typescript
+// Get connected wallets for the current user
+const { wallets } = await authClient.wallet.getConnected();
+
+// Connect an additional wallet
+await authClient.wallet.connect(bapId, authToken, "yours");
+
+// Disconnect a wallet
+await authClient.wallet.disconnect(bapId, walletAddress);
+
+// Set primary wallet (for receiving NFTs)
+await authClient.wallet.setPrimary(bapId, walletAddress);
+```
+
+### NFT ownership
+
+```typescript
+// List all NFTs across connected wallets
+const { wallets, totalNFTs } = await authClient.nft.list();
+
+// Force refresh from blockchain
+const fresh = await authClient.nft.list(true);
+
+// Verify ownership of a collection or specific origin
+const { owns, count } = await authClient.nft.verifyOwnership({
+  collection: "collection-id",
+  minCount: 1,
+});
+```
+
+### Subscriptions
+
+```typescript
+// Get subscription status based on NFT ownership
+const status = await authClient.subscription.getStatus();
+// status: { tier: "free" | "plus" | "pro" | "premium" | "enterprise", isActive, features }
+
+// Check if current tier meets a minimum requirement
+const hasAccess = authClient.subscription.hasTier(status.tier, "pro");
+```
+
+---
+
+## Database schema
+
+The plugin adds the following fields to your Better Auth schema. Run `bunx better-auth generate` after adding the plugin to get the migration.
+
+### `user` table additions
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `pubkey` | `string` (unique, required) | Bitcoin public key for this user |
+| `subscriptionTier` | `string` | Subscription tier (`free`, `plus`, `pro`, `premium`, `enterprise`). Added when `enableSubscription: true` on the provider. |
+| `roles` | `string` | Comma-separated role list. Added by `sigmaAdminPlugin`. |
+
+### `session` table additions
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `subscriptionTier` | `string` | Mirrors subscription tier for fast session reads |
+| `roles` | `string` | Mirrors roles for fast session reads |
+
+### `oauthClient` table additions (provider only)
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `ownerBapId` | `string` (required) | BAP ID of the client owner |
+| `memberPubkey` | `string` | Public key used to verify `X-Auth-Token` on token exchange |
+
+---
+
+## Next.js integration
+
+### Simple callback (tokens only)
+
+Use `createCallbackHandler` when you manage authentication state yourself (Mode A).
 
 ```typescript
 // app/api/auth/sigma/callback/route.ts
-import configPromise from "@payload-config";
-import { createPayloadCallbackHandler } from "@sigma-auth/better-auth-plugin/payload";
+import { createCallbackHandler } from "@sigma-auth/better-auth-plugin/next";
 
 export const runtime = "nodejs";
-export const POST = createPayloadCallbackHandler({ configPromise });
+export const POST = createCallbackHandler({
+  issuerUrl: process.env.NEXT_PUBLIC_SIGMA_AUTH_URL,
+  clientId: process.env.NEXT_PUBLIC_SIGMA_CLIENT_ID,
+  callbackPath: "/auth/sigma/callback",
+});
 ```
 
-### Custom User Creation
+### Better Auth callback (tokens + session cookie)
 
-Override the default user creation to add custom fields:
+Use `createBetterAuthCallbackHandler` to get a session cookie set alongside the tokens. This integrates with your local Better Auth instance.
 
 ```typescript
-export const POST = createPayloadCallbackHandler({
-  configPromise,
-  createUser: async (payload, sigmaUser) => {
-    return payload.create({
-      collection: "users",
+// app/api/auth/sigma/callback/route.ts
+import { createBetterAuthCallbackHandler } from "@sigma-auth/better-auth-plugin/next";
+import { auth } from "@/lib/auth-server";
+
+export const runtime = "nodejs";
+export const POST = createBetterAuthCallbackHandler({ auth });
+```
+
+With a custom user creation handler:
+
+```typescript
+export const POST = createBetterAuthCallbackHandler({
+  auth,
+  createUser: async (adapter, sigmaUser) => {
+    return adapter.create({
+      model: "user",
       data: {
-        email: sigmaUser.email || `${sigmaUser.sub}@sigma.identity`,
-        name: sigmaUser.name || sigmaUser.sub,
+        email: sigmaUser.email,
+        name: sigmaUser.name,
         emailVerified: true,
-        role: ["subscriber"], // Custom role
         bapId: sigmaUser.bap_id,
-        pubkey: sigmaUser.pubkey,
+        role: "subscriber",
+        createdAt: new Date(),
+        updatedAt: new Date(),
       },
     });
   },
 });
 ```
 
-### Configuration Options
+### Error page utility
 
 ```typescript
-interface PayloadCallbackConfig {
-  /** Payload config promise (required) */
-  configPromise: Promise<unknown>;
+// app/auth/sigma/error/page.tsx
+"use client";
 
-  /** Sigma Auth server URL (default: NEXT_PUBLIC_SIGMA_AUTH_URL) */
-  issuerUrl?: string;
+import { parseErrorParams } from "@sigma-auth/better-auth-plugin/next";
+import { useSearchParams } from "next/navigation";
 
-  /** OAuth client ID (default: NEXT_PUBLIC_SIGMA_CLIENT_ID) */
-  clientId?: string;
+export default function ErrorPage() {
+  const searchParams = useSearchParams();
+  const error = parseErrorParams(searchParams);
 
-  /** Member private key (default: SIGMA_MEMBER_PRIVATE_KEY env) */
-  memberPrivateKey?: string;
-
-  /** Callback path (default: /auth/sigma/callback) */
-  callbackPath?: string;
-
-  /** Users collection slug (default: "users") */
-  usersCollection?: string;
-
-  /** Sessions collection slug (default: "sessions") */
-  sessionsCollection?: string;
-
-  /** Session cookie name (default: "better-auth.session_token") */
-  sessionCookieName?: string;
-
-  /** Session duration in ms (default: 30 days) */
-  sessionDuration?: number;
-
-  /** Custom user creation handler */
-  createUser?: (payload, sigmaUser) => Promise<{ id: string | number }>;
-
-  /** Custom user lookup handler */
-  findUser?: (payload, sigmaUser) => Promise<{ id: string | number } | null>;
+  return (
+    <div>
+      <h1>{error?.error ?? "Authentication failed"}</h1>
+      <p>{error?.errorDescription}</p>
+    </div>
+  );
 }
 ```
 
-### Response
+---
 
-The callback returns `PayloadCallbackResult`:
+## Convex integration
 
-```typescript
-{
-  user: SigmaUserInfo;        // Sigma identity data
-  access_token: string;       // Access token
-  id_token: string;           // OIDC ID token
-  refresh_token?: string;     // Refresh token (if issued)
-  payloadUserId: string;      // Local Payload user ID
-  isNewUser: boolean;         // True if user was just created
-}
-```
-
-## Convex Integration
-
-For apps using Better Auth with Convex (`@convex-dev/better-auth`), use the server-side plugin instead of the Next.js callback handler. The plugin runs inside Better Auth itself — no local Auth instance needed.
-
-### Setup
+For apps using `@convex-dev/better-auth`, use `sigmaCallbackPlugin` inside your Convex auth configuration. No separate callback route is needed — the plugin registers `POST /sigma/callback` inside Better Auth, and the existing catch-all proxy forwards it to Convex.
 
 ```typescript
 // convex/betterAuth.ts
@@ -449,136 +485,260 @@ import authConfig from "./auth.config";
 
 export const authComponent = createClient<DataModel>(components.betterAuth);
 
-export const createAuth = (ctx: GenericCtx<DataModel>) => betterAuth({
-  baseURL: process.env.SITE_URL,
-  secret: process.env.BETTER_AUTH_SECRET,
-  database: authComponent.adapter(ctx),
-  plugins: [
-    convex({ authConfig }),
-    sigmaCallbackPlugin(),  // reads env: SIGMA_MEMBER_PRIVATE_KEY, NEXT_PUBLIC_SIGMA_CLIENT_ID
-  ],
-});
+export const createAuth = (ctx: GenericCtx<DataModel>) =>
+  betterAuth({
+    baseURL: process.env.SITE_URL,
+    secret: process.env.BETTER_AUTH_SECRET,
+    database: authComponent.adapter(ctx),
+    plugins: [
+      convex({ authConfig }),
+      sigmaCallbackPlugin(),
+    ],
+  });
 ```
 
 Set environment variables in your Convex deployment:
 
 ```bash
-SITE_URL="https://your-site-url"
-BETTER_AUTH_SECRET="your-random-secret"
 bunx convex env set SIGMA_MEMBER_PRIVATE_KEY "<your-wif-key>"
 bunx convex env set NEXT_PUBLIC_SIGMA_CLIENT_ID "your-app-id"
 ```
 
-Set these in your Next.js app `.env.local`:
+Delete `app/api/auth/sigma/callback/route.ts` if you previously had one — the catch-all proxy handles it.
 
-```bash
-NEXT_PUBLIC_CONVEX_URL="https://your-deployment.convex.cloud"
-NEXT_PUBLIC_CONVEX_SITE_URL="https://your-site-url"
-```
+---
 
-In your Next.js app, proxy `/api/auth/*` to Convex:
+## Payload CMS integration
 
 ```typescript
-// lib/auth-server.ts
-import { convexBetterAuthNextJs } from "@convex-dev/better-auth/nextjs";
+// app/api/auth/sigma/callback/route.ts
+import configPromise from "@payload-config";
+import { createPayloadCallbackHandler } from "@sigma-auth/better-auth-plugin/payload";
 
-export const { handler } = convexBetterAuthNextJs({
-  convexUrl: process.env.NEXT_PUBLIC_CONVEX_URL!,
-  convexSiteUrl: process.env.NEXT_PUBLIC_CONVEX_SITE_URL!,
+export const runtime = "nodejs";
+export const POST = createPayloadCallbackHandler({ configPromise });
+```
+
+With custom user creation:
+
+```typescript
+export const POST = createPayloadCallbackHandler({
+  configPromise,
+  createUser: async (payload, sigmaUser) => {
+    return payload.create({
+      collection: "users",
+      data: {
+        email: sigmaUser.email || `${sigmaUser.sub}@sigma.identity`,
+        name: sigmaUser.name,
+        emailVerified: true,
+        bapId: sigmaUser.bap_id,
+        role: ["subscriber"],
+      },
+    });
+  },
 });
 ```
 
-```typescript
-// app/api/auth/[...all]/route.ts
-import { handler } from "@/lib/auth-server";
+### Payload callback options
 
-export const { GET, POST } = handler;
+```typescript
+interface PayloadCallbackConfig {
+  configPromise: Promise<unknown>;   // required
+  issuerUrl?: string;                // Default: NEXT_PUBLIC_SIGMA_AUTH_URL
+  clientId?: string;                 // Default: NEXT_PUBLIC_SIGMA_CLIENT_ID
+  memberPrivateKey?: string;         // Default: SIGMA_MEMBER_PRIVATE_KEY
+  callbackPath?: string;             // Default: "/auth/sigma/callback"
+  usersCollection?: string;          // Default: "users"
+  sessionsCollection?: string;       // Default: "sessions"
+  sessionCookieName?: string;        // Default: "better-auth.session_token"
+  sessionDuration?: number;          // Default: 30 days (ms)
+  createUser?: (payload, sigmaUser) => Promise<{ id: string | number }>;
+  findUser?: (payload, sigmaUser) => Promise<{ id: string | number } | null>;
+}
 ```
 
-The plugin registers `POST /sigma/callback` — the existing `sigmaClient()` client plugin works unchanged. The catch-all auth proxy (`app/api/auth/[...all]/route.ts`) forwards the request to Convex where the plugin handles it.
+---
 
-No separate callback route needed — delete `app/api/auth/sigma/callback/route.ts` if you have one.
+## Admin plugin
 
-## Server Plugin (Auth Provider)
-
-For building your own Sigma Identity server:
+`sigmaAdminPlugin` resolves roles dynamically at session creation based on on-chain state. It works alongside Better Auth's built-in `admin` plugin — static roles set via `admin.setRole()` are preserved alongside dynamic ones.
 
 ```typescript
 import { betterAuth } from "better-auth";
-import { sigmaProvider } from "@sigma-auth/better-auth-plugin/provider";
+import { admin } from "better-auth/plugins";
+import { sigmaAdminPlugin } from "@sigma-auth/better-auth-plugin/server";
 
 export const auth = betterAuth({
   plugins: [
-    sigmaProvider({
-      enableSubscription: true,
-      resolveBAPId: async (pool, userId, pubkey, register) => {
-        // Your BAP ID resolution logic
+    sigmaAdminPlugin({
+      // Grant a role to holders of a specific NFT collection
+      nftCollections: [
+        { id: "abc123_0", role: "pixel-fox-holder" },
+        { id: "def456_0", role: "premium" },
+      ],
+
+      // Grant a role based on minimum token balance
+      tokenGates: [
+        { ticker: "GM", threshold: 75000, role: "premium" },
+        { ticker: "GM", threshold: 1000000, role: "whale" },
+      ],
+
+      // Grant admin role to specific BAP identities
+      adminBAPIds: [process.env.SUPERADMIN_BAP_ID!],
+
+      // Fetch connected wallets for NFT/token checking
+      getWalletAddresses: async (userId) => {
+        return db.query("SELECT address FROM wallets WHERE user_id = $1", [userId]);
       },
-      getPool: () => database,
-      cache: redisCache,
+
+      // NFT ownership check (implement with your indexer)
+      checkNFTOwnership: async (address, collectionId) => {
+        const nfts = await fetchNftUtxos(address, collectionId);
+        return nfts.length > 0;
+      },
+
+      // Token balance check (implement with your indexer)
+      getTokenBalance: async (address, ticker) => {
+        return fetchTokenBalance(address, ticker);
+      },
+
+      // BAP profile resolver
+      getBAPProfile: async (userId) => {
+        return db.profiles.findByUserId(userId);
+      },
+
+      // Custom role resolution logic
+      extendRoles: async (user, bap, address) => {
+        const roles: string[] = [];
+        if (await isVerifiedCreator(bap?.idKey)) {
+          roles.push("creator");
+        }
+        return roles;
+      },
     }),
+
+    admin({ defaultRole: "user" }),
   ],
 });
 ```
 
-## Key Concepts
+Roles are attached to both `session.user.roles` and `user.roles` as a comma-separated string, updated on every session creation and session fetch.
 
-### OAuth Endpoints
+---
 
-When using OAuth flow, there are **two different endpoints**:
+## Provider plugin (running your own auth server)
 
-1. **OAuth Redirect URI** (`/auth/sigma/callback`) - Where the auth server redirects after authorization
-2. **Token Exchange API** (`/api/auth/sigma/callback`) - Internal endpoint that exchanges code for tokens
-
-The redirect URI is what you configure in your OAuth client settings. The token exchange API is called internally by your callback page.
-
-### Authentication Result
-
-After successful authentication via `handleCallback()`, you receive:
+If you are building a Sigma-compatible auth server (like `auth.sigmaidentity.com` itself), use `sigmaProvider` to add Bitcoin signature verification to the OIDC token endpoint and BAP identity support.
 
 ```typescript
-{
-  user: {
-    sub: string;              // User ID
-    name?: string;            // Display name
-    email?: string;           // Email (if available)
-    picture?: string;         // Avatar URL
-    pubkey: string;           // Bitcoin public key
-    bap?: {                   // BAP identity (if available)
-      idKey: string;          // BAP ID
-      identity: {
-        name?: string;
-        alternateName?: string;
-        description?: string;
-        // ... other BAP profile fields
-      };
-    };
-  };
-  access_token: string;       // Access token for API calls
-  id_token: string;           // JWT ID token (OIDC)
-  refresh_token?: string;     // Refresh token (if issued)
+import { betterAuth } from "better-auth";
+import { sigmaProvider, createBapOrganization } from "@sigma-auth/better-auth-plugin/provider";
+
+export const auth = betterAuth({
+  plugins: [
+    sigmaProvider({
+      // Resolve Bitcoin pubkey to BAP identity
+      resolveBAPId: async (pool, userId, pubkey, register) => {
+        const result = await pool.query(
+          "SELECT bap_id FROM profile WHERE member_pubkey = $1",
+          [pubkey],
+        );
+        return result.rows[0]?.bap_id ?? null;
+      },
+
+      getPool: () => databasePool,
+
+      cache: redisClient,
+
+      enableSubscription: true,
+
+      debug: process.env.NODE_ENV === "development",
+    }),
+
+    // BAP identities map to organizations (one org per identity)
+    createBapOrganization(),
+  ],
+});
+```
+
+The provider plugin intercepts `POST /oauth2/token` to validate the Bitcoin-signed `X-Auth-Token` header — verifying the signature pubkey matches the `memberPubkey` registered for the OAuth client — and to update the user's name and avatar from their selected BAP profile once the token exchange succeeds.
+
+---
+
+## Type reference
+
+### `SigmaUserInfo`
+
+Returned by `handleCallback` and the `userinfo` endpoint.
+
+```typescript
+interface SigmaUserInfo {
+  sub: string;              // User ID
+  name?: string;
+  given_name?: string;
+  family_name?: string;
+  picture?: string;
+  email?: string;
+  pubkey: string;           // Bitcoin public key
+  bap_id?: string;          // BAP identity ID
+  bap?: BAPProfile;         // Full BAP profile
 }
 ```
 
-## Features
+### `BAPProfile`
 
-- PKCE flow for public clients
-- Bitcoin Auth signatures for secure token exchange
-- BAP (Bitcoin Attestation Protocol) identity support
-- Multi-identity wallet support
-- Subscription tier verification via NFT ownership
-- Type-safe with full TypeScript support
-- Full OIDC compliance with ID tokens
+```typescript
+interface BAPProfile {
+  idKey: string;            // BAP identity key
+  rootAddress: string;      // Root Bitcoin address
+  currentAddress?: string;
+  identity?: {
+    "@type"?: string;
+    alternateName?: string; // Display name
+    givenName?: string;
+    familyName?: string;
+    image?: string;
+    banner?: string;
+    description?: string;
+  };
+}
+```
+
+### `OAuthCallbackResult`
+
+```typescript
+interface OAuthCallbackResult {
+  user: SigmaUserInfo;
+  access_token: string;
+  id_token: string;         // OIDC JWT
+  refresh_token?: string;
+}
+```
+
+### `SubscriptionStatus`
+
+```typescript
+interface SubscriptionStatus {
+  tier: "free" | "plus" | "pro" | "premium" | "enterprise";
+  isActive: boolean;
+  nftOrigin?: string;
+  walletAddress?: string;
+  expiresAt?: Date;
+  features?: string[];
+}
+```
+
+---
 
 ## Troubleshooting
 
-### 403 on Token Exchange (Most Common Issue)
+### 403 on token exchange
 
-**Symptom**: OAuth flow succeeds, user authenticates, redirects back with `?code=...&state=...`, but then you get "Token Exchange Failed - Server returned 403".
+**Symptom:** OAuth completes, redirect comes back with `?code=...`, but then you get "Token Exchange Failed — Server returned 403."
 
-**Cause**: Better Auth's CSRF protection rejects the POST because the requesting origin isn't in `trustedOrigins`. This is extremely common on Vercel preview deployments where URLs are dynamic.
+**Cause:** Better Auth's CSRF protection rejects the POST because the requesting origin is not in `trustedOrigins`. This is common on Vercel preview deployments where URLs change per branch.
 
-**Fix**: Add Vercel's auto-set environment variables to your `trustedOrigins`:
+**Fix:** Add Vercel's automatic environment variables to `trustedOrigins`:
 
 ```typescript
 export const auth = betterAuth({
@@ -588,27 +748,74 @@ export const auth = betterAuth({
     process.env.VERCEL_BRANCH_URL ? `https://${process.env.VERCEL_BRANCH_URL}` : "",
     "http://localhost:3000",
   ].filter(Boolean),
-  // ...
 });
 ```
 
-This is a Better Auth configuration issue, not a Sigma plugin issue. See the [setup-nextjs skill](#available-skills) for more troubleshooting tips.
+This is a Better Auth configuration requirement.
 
-### Callback URL Not Registered
+### Callback URL not registered
 
-Ensure your callback URL is registered in your Sigma client configuration for every domain you deploy to, including Vercel preview URLs.
+Register every domain you deploy to — including Vercel preview URLs — as an allowed redirect URI in your Sigma OAuth client settings.
 
-### Environment Variable Issues
+### `SIGMA_MEMBER_PRIVATE_KEY` mismatch
 
-Run the validation script to check all required env vars:
+The WIF key in your environment must correspond to the public key registered as `memberPubkey` on your OAuth client record. If they differ, the signature verification step will reject every token exchange with `invalid_client`.
+
+To verify: derive the public key from your WIF using `@bsv/sdk`, then compare it to the `memberPubkey` in your database.
+
+### `Missing id_token in token response`
+
+Ensure `scope: "openid profile"` is included in the authorization request. The `openid` scope is required for OIDC `id_token` issuance.
+
+### Local signer not detected
+
+The local [TokenPass](https://tokenpas.app) server must be running at `http://localhost:21000` (or your configured `localServerUrl`) before the page loads. The probe runs once on initialization; if the server starts after the page loads, call `authClient.sigma.detectServer()` to retry.
+
+---
+
+## Claude Code plugin
+
+An AI-assisted setup plugin is available for Claude Code:
 
 ```bash
-bun run skills/setup-nextjs/scripts/validate-env.ts
+claude plugin install sigma-auth@b-open-io
 ```
 
-## Documentation
+Available skills:
 
-Full documentation: [https://sigmaidentity.com/docs](https://sigmaidentity.com/docs)
+| Skill | Command | Description |
+|-------|---------|-------------|
+| setup-nextjs | `/sigma-auth:setup-nextjs` | Project detection, env validation, and health check |
+| setup-convex | `/sigma-auth:setup-convex` | Convex + Better Auth integration guide |
+| bitcoin-auth-diagnostics | `/sigma-auth:bitcoin-auth-diagnostics` | Diagnose token verification and signature errors |
+| tokenpass | `/sigma-auth:tokenpass` | Token-gated access patterns with NFT ownership |
+| device-authorization | `/sigma-auth:device-authorization` | Device authorization flow for CLI tools and IoT |
+
+---
+
+## Why Bitcoin authentication
+
+| Concern | Password auth | Bitcoin auth |
+|---------|--------------|--------------|
+| Password breach | All users affected | Irrelevant — authentication uses cryptographic signatures |
+| Account recovery | Email link or support ticket | Encrypted backup, recoverable by the user |
+| Identity portability | Locked to one provider | Same identity works across any Sigma-compatible app |
+| Phishing resistance | Vulnerable to credential theft | Signatures are request-specific and non-replayable |
+| Privacy | Provider knows your email | Only your pubkey is required |
+| Regulatory exposure | PII storage obligations | No PII unless the user voluntarily provides it |
+
+The Sigma Identity flow is a single redirect with the same UX as "Sign in with Google" — the difference is that the resulting identity belongs to the user and works across every app that accepts Bitcoin signatures.
+
+---
+
+## Resources
+
+- **Sigma Identity** — [sigmaidentity.com](https://sigmaidentity.com)
+- **Full documentation** — [sigmaidentity.com/docs](https://sigmaidentity.com/docs)
+- **Better Auth** — [better-auth.com](https://www.better-auth.com)
+- **BAP specification** — [bap.network](https://bap.network)
+- **GitHub** — [github.com/b-open-io/better-auth-plugin](https://github.com/b-open-io/better-auth-plugin)
+- **Issues** — [github.com/b-open-io/better-auth-plugin/issues](https://github.com/b-open-io/better-auth-plugin/issues)
 
 ## License
 
