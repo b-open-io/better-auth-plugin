@@ -36,3 +36,4 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # generated local skill metadata
 .clawnet/
 **/.clawnet/
+.claude/settings.local.json
