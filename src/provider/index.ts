@@ -134,6 +134,14 @@ export interface SigmaProviderOptions {
 	 * @default false
 	 */
 	debug?: boolean;
+
+	/**
+	 * Disable implicit sign up for new users via the /sign-in/sigma endpoint.
+	 * When true, only existing users can sign in — new users will receive a
+	 * FORBIDDEN error instructing them to sign up first.
+	 * @default false
+	 */
+	disableImplicitSignUp?: boolean;
 }
 
 /**
@@ -857,6 +865,15 @@ export const sigmaProvider = (
 						}
 
 						if (!user) {
+							// Respect disableImplicitSignUp — refuse to create new users
+							if (options?.disableImplicitSignUp) {
+								throw new APIError("FORBIDDEN", {
+									message:
+										"Account not found. Sign up is required before signing in.",
+									code: "USER_NOT_FOUND",
+								});
+							}
+
 							// Create new user with pubkey (no email)
 							try {
 								user = (await ctx.context.adapter.create({

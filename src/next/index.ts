@@ -280,6 +280,14 @@ export interface BetterAuthCallbackConfig extends CallbackRouteConfig {
 				sigmaUser: SigmaUser,
 		  ) => Promise<void>)
 		| false;
+
+	/**
+	 * Disable implicit sign up for new users.
+	 * When true, the callback will return a 403 error if no existing user
+	 * is found, instead of creating a new one.
+	 * @default false
+	 */
+	disableImplicitSignUp?: boolean;
 }
 
 /**
@@ -465,27 +473,40 @@ export function createBetterAuthCallbackHandler(
 							});
 						}
 					}
-				} else if (config.createUser) {
-					const newUser = await config.createUser(adapter, result.user);
-					userId = newUser.id;
-					isNewUser = true;
 				} else {
-					// Default user creation
-					const newUser = await adapter.create<{ id: string }>({
-						model: "user",
-						data: {
-							email,
-							name,
-							image,
-							bapId,
-							...(pubkey && { pubkey }),
-							emailVerified: true,
-							createdAt: new Date(),
-							updatedAt: new Date(),
-						},
-					});
-					userId = newUser.id;
-					isNewUser = true;
+					// No existing user found — check disableImplicitSignUp
+					if (config.disableImplicitSignUp) {
+						return Response.json(
+							{
+								error: "Account not found. Sign up is required before signing in.",
+								code: "USER_NOT_FOUND",
+							},
+							{ status: 403 },
+						);
+					}
+
+					if (config.createUser) {
+						const newUser = await config.createUser(adapter, result.user);
+						userId = newUser.id;
+						isNewUser = true;
+					} else {
+						// Default user creation
+						const newUser = await adapter.create<{ id: string }>({
+							model: "user",
+							data: {
+								email,
+								name,
+								image,
+								bapId,
+								...(pubkey && { pubkey }),
+								emailVerified: true,
+								createdAt: new Date(),
+								updatedAt: new Date(),
+							},
+						});
+						userId = newUser.id;
+						isNewUser = true;
+					}
 				}
 			} else {
 				// Default user lookup by email
@@ -515,27 +536,40 @@ export function createBetterAuthCallbackHandler(
 							});
 						}
 					}
-				} else if (config.createUser) {
-					const newUser = await config.createUser(adapter, result.user);
-					userId = newUser.id;
-					isNewUser = true;
 				} else {
-					// Default user creation
-					const newUser = await adapter.create<{ id: string }>({
-						model: "user",
-						data: {
-							email,
-							name,
-							image,
-							bapId,
-							...(pubkey && { pubkey }),
-							emailVerified: true,
-							createdAt: new Date(),
-							updatedAt: new Date(),
-						},
-					});
-					userId = newUser.id;
-					isNewUser = true;
+					// No existing user found — check disableImplicitSignUp
+					if (config.disableImplicitSignUp) {
+						return Response.json(
+							{
+								error: "Account not found. Sign up is required before signing in.",
+								code: "USER_NOT_FOUND",
+							},
+							{ status: 403 },
+						);
+					}
+
+					if (config.createUser) {
+						const newUser = await config.createUser(adapter, result.user);
+						userId = newUser.id;
+						isNewUser = true;
+					} else {
+						// Default user creation
+						const newUser = await adapter.create<{ id: string }>({
+							model: "user",
+							data: {
+								email,
+								name,
+								image,
+								bapId,
+								...(pubkey && { pubkey }),
+								emailVerified: true,
+								createdAt: new Date(),
+								updatedAt: new Date(),
+							},
+						});
+						userId = newUser.id;
+						isNewUser = true;
+					}
 				}
 			}
 
