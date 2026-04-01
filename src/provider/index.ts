@@ -329,7 +329,7 @@ export const sigmaProvider = (
 				fields: {
 					ownerBapId: {
 						type: "string",
-						required: true,
+						required: false,
 					},
 					memberPubkey: {
 						type: "string",
