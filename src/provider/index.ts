@@ -285,9 +285,21 @@ export const sigmaProvider = (
 		schema: {
 			user: {
 				fields: {
+					// Bitcoin public key - written by provider-side sign-in and
+					// available from the OAuth response (SigmaUserInfo.pubkey).
+					// Not required because consumer-side callbacks may create
+					// users before the pubkey is populated.
 					pubkey: {
 						type: "string",
-						required: true,
+						required: false,
+						unique: true,
+					},
+					// BAP (Bitcoin Attestation Protocol) identity key - written
+					// by consumer-side callback handlers (next/ and server/)
+					// when creating/updating users from Sigma OAuth responses.
+					bapId: {
+						type: "string",
+						required: false,
 						unique: true,
 					},
 					...(options?.enableSubscription
@@ -313,8 +325,6 @@ export const sigmaProvider = (
 						: {}),
 				},
 			},
-			// Note: selectedBapId removed - use referenceId from oauth-provider instead
-			// referenceId is set via postLogin.consentReferenceId callback
 			oauthClient: {
 				fields: {
 					ownerBapId: {
@@ -327,8 +337,6 @@ export const sigmaProvider = (
 					},
 				},
 			},
-			// Note: oauthConsent selectedBapId removed - use referenceId from oauth-provider instead
-			// Note: verification table's updatedAt is in Better Auth core schema - don't extend
 		},
 
 		hooks: {

@@ -162,6 +162,7 @@ export function sigmaCallbackPlugin(
 						result.user.name || bap?.identity?.alternateName || "User";
 					const image =
 						result.user.picture || bap?.identity?.image || undefined;
+					const pubkey = result.user.pubkey || undefined;
 
 					// 5. Find or create user
 					const { adapter, internalAdapter } = ctx.context;
@@ -183,6 +184,8 @@ export function sigmaCallbackPlugin(
 							update: {
 								name,
 								image,
+								...(bapId && { bapId }),
+								...(pubkey && { pubkey }),
 								updatedAt: new Date(),
 							},
 						});
@@ -194,6 +197,8 @@ export function sigmaCallbackPlugin(
 								email,
 								name,
 								image,
+								...(bapId && { bapId }),
+								...(pubkey && { pubkey }),
 								emailVerified: true,
 								createdAt: new Date(),
 								updatedAt: new Date(),
