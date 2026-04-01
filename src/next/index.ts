@@ -478,7 +478,8 @@ export function createBetterAuthCallbackHandler(
 					if (config.disableImplicitSignUp) {
 						return Response.json(
 							{
-								error: "Account not found. Sign up is required before signing in.",
+								error:
+									"Account not found. Sign up is required before signing in.",
 								code: "USER_NOT_FOUND",
 							},
 							{ status: 403 },
@@ -541,7 +542,8 @@ export function createBetterAuthCallbackHandler(
 					if (config.disableImplicitSignUp) {
 						return Response.json(
 							{
-								error: "Account not found. Sign up is required before signing in.",
+								error:
+									"Account not found. Sign up is required before signing in.",
 								code: "USER_NOT_FOUND",
 							},
 							{ status: 403 },

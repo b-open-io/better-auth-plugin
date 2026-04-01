@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.86
+
+### Added
+- **`disableImplicitSignUp` option**: When set to `true`, the `/sign-in/sigma` endpoint and `next/` callback reject new user creation with a `FORBIDDEN` error (`USER_NOT_FOUND` code). Existing users can still sign in. This respects Better Auth's built-in sign-up gating pattern.
+
 ## 0.0.85
 
 ### Fixed
