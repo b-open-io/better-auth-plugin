@@ -366,13 +366,20 @@ const hasAccess = authClient.subscription.hasTier(status.tier, "pro");
 
 ## Database schema
 
-The plugin adds the following fields to your Better Auth schema. Run `bunx better-auth generate` after adding the plugin to get the migration.
+The plugin extends your Better Auth schema. **Do not hand-write these tables** — run the CLI to generate them:
+
+```bash
+npx @better-auth/cli generate
+```
+
+This produces the complete Drizzle schema with all plugin fields. Run your migration tool (`drizzle-kit push`, etc.) after generating.
 
 ### `user` table additions
 
 | Column | Type | Description |
 |--------|------|-------------|
-| `pubkey` | `string` (unique, required) | Bitcoin public key for this user |
+| `pubkey` | `string` (unique, optional) | Bitcoin public key. Written by `/sign-in/sigma` and consumer callbacks when available. |
+| `bapId` | `string` (unique, optional) | BAP identity ID. Written by consumer callbacks from the OAuth response `bap_id` claim. |
 | `subscriptionTier` | `string` | Subscription tier (`free`, `plus`, `pro`, `premium`, `enterprise`). Added when `enableSubscription: true` on the provider. |
 | `roles` | `string` | Comma-separated role list. Added by `sigmaAdminPlugin`. |
 
@@ -385,10 +392,12 @@ The plugin adds the following fields to your Better Auth schema. Run `bunx bette
 
 ### `oauthClient` table additions (provider only)
 
+These fields are additive on top of the `oauth-provider` base table. Only needed if your app acts as an OAuth provider (identity server).
+
 | Column | Type | Description |
 |--------|------|-------------|
-| `ownerBapId` | `string` (required) | BAP ID of the client owner |
-| `memberPubkey` | `string` | Public key used to verify `X-Auth-Token` on token exchange |
+| `ownerBapId` | `string` (optional) | BAP ID of the client owner |
+| `memberPubkey` | `string` (optional) | Public key used to verify `X-Auth-Token` on token exchange |
 
 ---
 
