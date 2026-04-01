@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.0.85
+
+### Fixed
+- **Schema/runtime alignment**: Plugin schema now declares all fields that runtime code reads and writes. Consumers running `npx @better-auth/cli generate` get a complete, correct schema.
+  - Added `user.bapId` to schema declaration (was written by callbacks but never declared)
+  - Changed `user.pubkey` from `required: true` to `required: false` (not all code paths set it on creation)
+  - Changed `oauthClient.ownerBapId` from `required: true` to `required: false`
+- **Consumer callbacks write pubkey**: `next/index.ts` and `server/callback-plugin.ts` now write `pubkey` from the Sigma OAuth response when available
+- **Consumer callbacks write bapId**: `server/callback-plugin.ts` now writes `bapId` to user records (was missing)
+
+## 0.0.84
+
+### Changed
+- **CWI transport for sigma signer**: Replace SigmaIframeSigner with CWI wallet interface transport
+- Remove `getWalletKey` (no longer needed with CWI)
+
 ## 0.0.83
 
 ### Fixed
