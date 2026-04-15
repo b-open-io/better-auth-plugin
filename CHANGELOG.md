@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.88
+
+### Fixed
+- **Sigma account rows now reparent to the currently-resolved user**: Both `createBetterAuthCallbackHandler` (next/) and `sigmaCallbackPlugin` (server/) already looked up the target user by email first, but when they subsequently found an existing `accounts` row keyed by `(providerId: "sigma", accountId: <sub>)`, the update call only refreshed tokens and did not set `userId`. If the email-based user lookup resolved to a different user than the one the account was previously attached to — the exact scenario introduced by the 0.0.87 scope change, where Sigma started returning a real email that matches an existing magic-link user — the account row was left orphaned, with `accounts.userId` pointing at an abandoned user while the session belonged to the new user. Both handlers now include `userId` in the update and log a reparenting line when the userId changes.
+
 ## 0.0.87
 
 ### Changed

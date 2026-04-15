@@ -219,6 +219,7 @@ export function sigmaCallbackPlugin(
 					const accountsByAccountId = await adapter.findMany<{
 						id: string;
 						providerId: string;
+						userId: string;
 					}>({
 						model: "account",
 						where: [{ field: "accountId", value: sigmaAccountId }],
@@ -232,10 +233,27 @@ export function sigmaCallbackPlugin(
 						: undefined;
 
 					if (existingAccount) {
+						// Reparent the sigma account row to the currently-resolved
+						// user if it was previously attached to a different user.
+						// This can happen when the Sigma token now returns a real
+						// email that matches an existing magic-link user, where
+						// before the email was synthesized as `<sub>@sigma.local`
+						// and attached to a different user row. Without reparenting,
+						// `accounts.userId` is orphaned against the user that now
+						// holds the session.
+						if (existingAccount.userId !== user.id) {
+							console.log(
+								"[Sigma Callback Plugin] Reparenting sigma account %s from user %s to user %s",
+								existingAccount.id,
+								existingAccount.userId,
+								user.id,
+							);
+						}
 						await adapter.update({
 							model: "account",
 							where: [{ field: "id", value: existingAccount.id }],
 							update: {
+								userId: user.id,
 								accessToken: result.access_token,
 								refreshToken: result.refresh_token,
 								idToken: result.id_token,

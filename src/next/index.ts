@@ -583,7 +583,10 @@ export function createBetterAuthCallbackHandler(
 
 			// Create or update account record for multi-provider support
 			const sigmaAccountId = result.user.sub;
-			const existingAccount = await adapter.findOne<{ id: string }>({
+			const existingAccount = await adapter.findOne<{
+				id: string;
+				userId: string;
+			}>({
 				model: "account",
 				where: [
 					{ field: "providerId", value: "sigma" },
@@ -597,11 +600,28 @@ export function createBetterAuthCallbackHandler(
 				: null;
 
 			if (existingAccount) {
-				// Update existing account with fresh tokens
+				// Update existing account with fresh tokens AND reparent to the
+				// current userId. If the email-based user lookup resolved a
+				// different user than the one the sigma account was previously
+				// attached to (e.g. because the Sigma token now returns a real
+				// email that matches an existing magic-link user, where before
+				// the lookup fell through to a synthetic `<sub>@sigma.local`
+				// email), the `accounts.userId` FK must follow the identity or
+				// it becomes orphaned against the user that now holds the
+				// session.
+				if (existingAccount.userId !== userId) {
+					console.log(
+						"[Sigma BA Callback] Reparenting sigma account %s from user %s to user %s",
+						existingAccount.id,
+						existingAccount.userId,
+						userId,
+					);
+				}
 				await adapter.update({
 					model: "account",
 					where: [{ field: "id", value: existingAccount.id }],
 					update: {
+						userId,
 						accessToken: result.access_token,
 						refreshToken: result.refresh_token,
 						idToken: result.id_token,
