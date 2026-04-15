@@ -252,6 +252,7 @@ authClient.signIn.sigma({
   bapId: "specific-identity-id",          // for multi-identity wallets
   prompt: "select_account",               // force account selection
   forceLogin: false,                      // bypass existing session check
+  scope: "openid profile email",          // default; override to add e.g. offline_access
 });
 
 // Handle the OAuth redirect in your callback page
@@ -774,7 +775,13 @@ To verify: derive the public key from your WIF using `@bsv/sdk`, then compare it
 
 ### `Missing id_token in token response`
 
-Ensure `scope: "openid profile"` is included in the authorization request. The `openid` scope is required for OIDC `id_token` issuance.
+Ensure the `openid` scope is included in the authorization request. It is required for OIDC `id_token` issuance. The plugin defaults to `"openid profile email"`, which covers this — you only need to think about this if you've overridden the `scope` option and removed `openid`.
+
+### `email` is missing from the userinfo response
+
+Per OpenID Connect Core §5.4, scope values map to claim sets: `openid` returns `sub`, `profile` returns name/picture, and **`email` is a separate scope** that returns `email` and `email_verified`. If your client only requests `"openid profile"`, the userinfo response will not include an email — this is standard OIDC behavior, not a Sigma quirk.
+
+Since `0.0.87` the plugin default is `"openid profile email"`, so email claims come back automatically. If you're on an older version, pass `scope: "openid profile email"` to `authClient.signIn.sigma()`. The real email is required for Better Auth's automatic account linking — without it, consumer apps that also support magic link or other email-based sign-in will end up with two separate user rows (one keyed by the real email, one keyed by a synthetic `<bap_id>@sigma.local` email).
 
 ### Local signer not detected
 

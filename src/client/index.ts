@@ -195,6 +195,22 @@ export interface SigmaSignInOptions {
 	 * Use this to pass custom headers (like X-Auth-Token) through the proxy
 	 */
 	fetchOptions?: BetterFetchOption;
+	/**
+	 * Space-separated OAuth 2.1 / OIDC scopes to request at the authorize
+	 * endpoint. Per OpenID Connect Core §5.4, scopes map to claims:
+	 * - `openid` — required for OIDC; returns `sub`
+	 * - `profile` — returns `name`, `picture`, `given_name`, `family_name`, etc.
+	 * - `email` — returns `email` and `email_verified`
+	 * - `offline_access` — grants a refresh token
+	 *
+	 * Default: `"openid profile email"`. The `email` scope is included by
+	 * default so the userinfo response carries the user's real email address,
+	 * which is required for Better Auth's automatic account linking by email.
+	 *
+	 * Consumers can override this to request additional scopes (e.g.
+	 * `"openid profile email offline_access"`) or narrower ones.
+	 */
+	scope?: string;
 }
 
 // PKCE helper functions
@@ -624,7 +640,7 @@ export const sigmaClient = (options: SigmaClientOptions = {}) => {
 							redirect_uri: redirectUri,
 							response_type: "code",
 							state,
-							scope: "openid profile",
+							scope: signInOptions.scope ?? "openid profile email",
 							code_challenge: codeChallenge,
 							code_challenge_method: "S256",
 						});

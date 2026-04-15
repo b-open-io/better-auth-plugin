@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.0.87
+
+### Changed
+- **Default OAuth scope now includes `email`**: `authClient.signIn.sigma()` previously hardcoded `scope: "openid profile"` when building the authorize URL. It now defaults to `"openid profile email"` so the userinfo response carries `email` and `email_verified` claims. Per OpenID Connect Core §5.4, `email` is a separate scope from `profile` and must be requested explicitly — requesting only `openid profile` leaves the email claim empty.
+- **Without a real email, consumer apps end up with duplicate user rows** when the same person signs in via magic link (real email) and Sigma (synthetic `<bap_id>@sigma.local` email). With `email` now requested by default, Better Auth's built-in account linking by verified email works as designed.
+
+### Added
+- **`scope` option on `SigmaSignInOptions`**: Consumers can override the default scope string to request additional scopes (e.g. `"openid profile email offline_access"`) or narrower ones. Defaults to `"openid profile email"`.
+
+### Migration
+- No action required for most consumers — the new default is a strict superset of the old one.
+- On first sign-in after upgrading, users may see a fresh consent screen from Sigma Identity because a new scope is being requested. This is expected OIDC behavior.
+- If you have a custom callback handler that relied on `result.user.email` being empty (falling through to the `<bap_id>@sigma.local` synthetic), it will now receive a real email. Update your user-creation/lookup logic accordingly.
+
 ## 0.0.86
 
 ### Added
