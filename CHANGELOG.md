@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.0.89
+
+### Changed
+- **Rebuilt against `better-auth` 1.6.x**. `devDependencies.better-auth` bumped from `^1.5.0` to `1.6.8` and `peerDependencies.better-auth` bumped to `^1.6.0`. No runtime code changes — the plugin already compiled against 1.6 without edits — but the published `.d.ts` files now reference current `better-auth` types, so consumers on 1.6 stop hitting structural-type mismatches when passing their `Auth` instance to `createBetterAuthCallbackHandler` / `sigmaAdminPlugin` / `sigmaCallbackPlugin`.
+
+### Migration
+- Consumers on `better-auth@^1.6.0`: drop any `as unknown as Auth` casts around the plugin's entry points and upgrade to `@sigma-auth/better-auth-plugin@^0.0.89`.
+- Consumers still on `better-auth@1.5.x`: stay on 0.0.88 until you upgrade; the new peer requires ^1.6.0.
+
 ## 0.0.88
 
 ### Fixed

@@ -1,6 +1,6 @@
 {
 	"name": "@sigma-auth/better-auth-plugin",
-	"version": "0.0.88",
+	"version": "0.0.89",
 	"description": "Better Auth plugins for Sigma Identity - client, server, and provider integrations",
 	"type": "module",
 	"main": "./dist/types/index.js",
@@ -77,7 +77,7 @@
 	"peerDependencies": {
 		"@bsv/sdk": "^2.0.0",
 		"@neondatabase/serverless": "^1.0.2",
-		"better-auth": "^1.5.0",
+		"better-auth": "^1.6.0",
 		"bsv-bap": "^0.1.23",
 		"payload-auth": "^0.6.0",
 		"zod": "^4.1.12"
@@ -108,7 +108,7 @@
 		"@bsv/sdk": "^2.0.0",
 		"@neondatabase/serverless": "^1.0.2",
 		"@types/node": "^24.10.7",
-		"better-auth": "^1.5.0",
+		"better-auth": "^1.6.0",
 		"bsv-bap": "0.1.23",
 		"typescript": "^5.9.3",
 		"zod": "^4.3.5"
