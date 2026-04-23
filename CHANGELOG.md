@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.0.90
+
+### Fixed
+- **`createBetterAuthCallbackHandler` now accepts `Auth<O>` with any `BetterAuthOptions`.** Both the function and `BetterAuthCallbackConfig` are now generic over `O extends BetterAuthOptions`, and `AuthAdapter` is parameterized the same way. Previously the parameter was typed as the bare `Auth`, which resolves to `Auth<BetterAuthOptions>` — TypeScript refuses to assign a consumer's specific `Auth<ConsumerOptions>` to that under invariant generic comparison, so consumers hit errors like `Property 'banned' is missing in type` when they enabled the `admin()` plugin. The generic lets the consumer's specific `Auth` shape flow through without casts.
+
+### Migration
+- Consumers who were forced to cast — e.g. `createBetterAuthCallbackHandler({ auth: auth as unknown as Auth, ... })` — can drop the cast and pass `auth` directly.
+- No runtime behavior change.
+
 ## 0.0.89
 
 ### Changed

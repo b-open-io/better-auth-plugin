@@ -4,7 +4,7 @@
  */
 
 import crypto from "node:crypto";
-import type { Auth } from "better-auth";
+import type { Auth, BetterAuthOptions } from "better-auth";
 
 import {
 	exchangeCodeForTokens,
@@ -219,9 +219,13 @@ export function parseErrorParams(
 }
 
 /**
- * Extract adapter type from Auth for use in custom handlers
+ * Extract adapter type from Auth for use in custom handlers.
+ * Generic over `BetterAuthOptions` so the adapter matches whatever
+ * plugins the consumer's Auth was built with.
  */
-type AuthAdapter = Awaited<Auth["$context"]>["adapter"];
+type AuthAdapter<O extends BetterAuthOptions = BetterAuthOptions> = Awaited<
+	Auth<O>["$context"]
+>["adapter"];
 
 /**
  * Extract user data from token exchange for custom handlers
@@ -229,9 +233,17 @@ type AuthAdapter = Awaited<Auth["$context"]>["adapter"];
 type SigmaUser = TokenExchangeResult["user"];
 
 /**
- * Configuration for the Better Auth callback route handler
+ * Configuration for the Better Auth callback route handler.
+ *
+ * Generic over `BetterAuthOptions` so the caller's specific `Auth<O>`
+ * shape (with whatever plugins they enabled — admin, stripe, etc.)
+ * flows through without losing the extra User/Session fields those
+ * plugins contribute. Defaults to the base `BetterAuthOptions` when
+ * inference can't pick one up.
  */
-export interface BetterAuthCallbackConfig extends CallbackRouteConfig {
+export interface BetterAuthCallbackConfig<
+	O extends BetterAuthOptions = BetterAuthOptions,
+> extends CallbackRouteConfig {
 	/**
 	 * Better Auth instance from your auth-server.ts
 	 * @example
@@ -240,7 +252,7 @@ export interface BetterAuthCallbackConfig extends CallbackRouteConfig {
 	 * export const POST = createBetterAuthCallbackHandler({ auth });
 	 * ```
 	 */
-	auth: Auth;
+	auth: Auth<O>;
 
 	/**
 	 * Domain to use for fallback email when Sigma user has no email set.
@@ -255,7 +267,7 @@ export interface BetterAuthCallbackConfig extends CallbackRouteConfig {
 	 * Override to customize how users are created from Sigma identity
 	 */
 	createUser?: (
-		adapter: AuthAdapter,
+		adapter: AuthAdapter<O>,
 		sigmaUser: SigmaUser,
 	) => Promise<{ id: string }>;
 
@@ -264,7 +276,7 @@ export interface BetterAuthCallbackConfig extends CallbackRouteConfig {
 	 * Override to customize how existing users are found
 	 */
 	findUser?: (
-		adapter: AuthAdapter,
+		adapter: AuthAdapter<O>,
 		sigmaUser: SigmaUser,
 	) => Promise<{ id: string } | null>;
 
@@ -275,7 +287,7 @@ export interface BetterAuthCallbackConfig extends CallbackRouteConfig {
 	 */
 	updateUser?:
 		| ((
-				adapter: AuthAdapter,
+				adapter: AuthAdapter<O>,
 				userId: string,
 				sigmaUser: SigmaUser,
 		  ) => Promise<void>)
@@ -342,9 +354,9 @@ export interface BetterAuthCallbackResult extends TokenExchangeResult {
  * });
  * ```
  */
-export function createBetterAuthCallbackHandler(
-	config: BetterAuthCallbackConfig,
-) {
+export function createBetterAuthCallbackHandler<
+	O extends BetterAuthOptions = BetterAuthOptions,
+>(config: BetterAuthCallbackConfig<O>) {
 	return async (request: NextRequest) => {
 		try {
 			const body = (await request.json()) as {
