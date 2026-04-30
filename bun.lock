@@ -21,7 +21,7 @@
       "peerDependencies": {
         "@bsv/sdk": "^2.0.0",
         "@neondatabase/serverless": "^1.0.2",
-        "better-auth": "^1.5.0",
+        "better-auth": "^1.6.0",
         "bsv-bap": "^0.1.23",
         "payload-auth": "^0.6.0",
         "zod": "^4.1.12",

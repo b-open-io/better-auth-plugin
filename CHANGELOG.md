@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.0.91
+
+### Breaking
+- **`user.bapId` is no longer contributed to consumer schemas, and the plugin no longer writes to `user.bapId` or `user.pubkey` from any callback.** `bapId` is per-BAP — a single human can hold many BAP identities — and storing it on a `user` row with `UNIQUE` made every multi-BAP sign-in fight the schema. The selected bapId for any given session is recoverable from the access-token claims (`bap_id`) and the OIDC userinfo response. Per-BAP `member_pubkey` lives on `profile.member_pubkey` (provider-side) and is served to consumers via the `pubkey` claim.
+
+### Migration
+- Consumers that declared a `bap_id`/`bapId` column on their `user` table: drop the column and its UNIQUE index after upgrading. There are no replacement reads in the plugin — anywhere your code reads `user.bap_id`, switch to reading the access-token claim or the `account` row's `accountId` (sigma's `sub`). Specifically:
+  - SQLite/Turso (Drizzle): `DROP INDEX user_bap_id_unique; ALTER TABLE user DROP COLUMN bap_id;` + drop the field from your Drizzle schema.
+  - Postgres: `ALTER TABLE "user" DROP CONSTRAINT IF EXISTS user_bap_id_key; ALTER TABLE "user" DROP COLUMN IF EXISTS bap_id;`
+- Consumers without a `bap_id` column on user (e.g. bopen.io): no migration needed, just upgrade.
+
+### Fixed
+- **`createBetterAuthCallbackHandler` (next/) and `sigmaCallbackPlugin` (server/) no longer write per-BAP `bapId` or `pubkey` to the user row** on every sign-in. These were the writes that triggered `UNIQUE constraint failed: user.bap_id` for any consumer with the column, blocking sign-in entirely once an orphan/duplicate row existed.
+- **`sigmaProvider` no longer writes `user.pubkey = selectedProfile.member_pubkey`** on the consent or token-flow hooks. The user.pubkey column remains for now (sigma-auth's sign-in path still queries it), but the over-eager overwrite-on-every-consent is gone.
+
 ## 0.0.90
 
 ### Fixed

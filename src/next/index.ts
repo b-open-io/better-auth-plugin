@@ -455,7 +455,6 @@ export function createBetterAuthCallbackHandler<
 				result.user.email || `${bapId || result.user.sub}@${emailDomain}`;
 			const name = result.user.name || bap?.identity?.alternateName || "User";
 			const image = result.user.picture || bap?.identity?.image;
-			const pubkey = result.user.pubkey || undefined;
 
 			// Find or create user
 			let userId: string;
@@ -477,8 +476,6 @@ export function createBetterAuthCallbackHandler<
 								update: {
 									name,
 									image,
-									bapId,
-									...(pubkey && { pubkey }),
 									email,
 									updatedAt: new Date(),
 								},
@@ -510,8 +507,6 @@ export function createBetterAuthCallbackHandler<
 								email,
 								name,
 								image,
-								bapId,
-								...(pubkey && { pubkey }),
 								emailVerified: true,
 								createdAt: new Date(),
 								updatedAt: new Date(),
@@ -541,8 +536,6 @@ export function createBetterAuthCallbackHandler<
 								update: {
 									name,
 									image,
-									bapId,
-									...(pubkey && { pubkey }),
 									email,
 									updatedAt: new Date(),
 								},
@@ -574,8 +567,6 @@ export function createBetterAuthCallbackHandler<
 								email,
 								name,
 								image,
-								bapId,
-								...(pubkey && { pubkey }),
 								emailVerified: true,
 								createdAt: new Date(),
 								updatedAt: new Date(),

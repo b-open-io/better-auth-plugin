@@ -293,23 +293,23 @@ export const sigmaProvider = (
 		schema: {
 			user: {
 				fields: {
-					// Bitcoin public key - written by provider-side sign-in and
-					// available from the OAuth response (SigmaUserInfo.pubkey).
-					// Not required because consumer-side callbacks may create
-					// users before the pubkey is populated.
+					// `pubkey` stays on user only because sigma-auth's sign-in
+					// path still looks users up by it; full removal is gated
+					// on a backfill of profile.member_pubkey for active users
+					// + a sign-in flow rewrite to query profile-side. Tracked
+					// separately. Until then, the parasitic "overwrite on
+					// every consent" writes have been removed (see hooks
+					// below) so the value is no longer churned.
 					pubkey: {
 						type: "string",
 						required: false,
 						unique: true,
 					},
-					// BAP (Bitcoin Attestation Protocol) identity key - written
-					// by consumer-side callback handlers (next/ and server/)
-					// when creating/updating users from Sigma OAuth responses.
-					bapId: {
-						type: "string",
-						required: false,
-						unique: true,
-					},
+					// `bapId` deliberately removed. It is per-BAP, served via
+					// OIDC userinfo claims from the selected BAP's profile,
+					// and never persisted on the user row. Storing it here
+					// with UNIQUE forced "one user, one bapId" which
+					// contradicts the multi-BAP-per-human model.
 					...(options?.enableSubscription
 						? {
 								subscriptionTier: {
@@ -448,16 +448,17 @@ export const sigmaProvider = (
 											"Data URI images are too large for session cookies. Use a URL instead.",
 									);
 								}
-								// Update user record with profile data
+								// Update user record with profile data. Only user-level
+								// fields (name, image) — never copy per-BAP attributes
+								// like member_pubkey onto the user row. Per-BAP data is
+								// served fresh from profile.member_pubkey via the OIDC
+								// userinfo claims, not cached here.
 								await ctx.context.adapter.update({
 									model: "user",
 									where: [{ field: "id", value: userId }],
 									update: {
 										name: profile.name,
 										image: safeImage,
-										...(profile.member_pubkey && {
-											pubkey: profile.member_pubkey,
-										}),
 										updatedAt: new Date(),
 									},
 								});
@@ -990,16 +991,16 @@ export const sigmaProvider = (
 												"Data URI images are too large for session cookies. Use a URL instead.",
 										);
 									}
-									// Update user record with profile data
+									// Update user record with profile data. Only user-level
+									// fields (name, image) — per-BAP member_pubkey lives
+									// in profile.member_pubkey and is served from there
+									// via OIDC userinfo, never cached on the user row.
 									await ctx.context.adapter.update({
 										model: "user",
 										where: [{ field: "id", value: user.id }],
 										update: {
 											name: selectedProfile.name,
 											image: safeImage,
-											...(selectedProfile.member_pubkey && {
-												pubkey: selectedProfile.member_pubkey,
-											}),
 											updatedAt: new Date(),
 										},
 									});
