@@ -1,5 +1,9 @@
-import type { BetterFetchOption } from "@better-fetch/fetch";
-import type { AuthQueryAtom, BetterAuthClientPlugin } from "better-auth/client";
+import type { BetterFetch, BetterFetchOption } from "@better-fetch/fetch";
+import type {
+	AuthQueryAtom,
+	BetterAuthClientPlugin,
+	ClientStore,
+} from "better-auth/client";
 // Import organizationClient from dedicated path for tree-shaking (per Better Auth best practices)
 import { organizationClient } from "better-auth/client/plugins";
 import type {
@@ -325,7 +329,10 @@ export const sigmaClient = (options: SigmaClientOptions = {}) => {
 	return {
 		id: "sigma",
 
-		getActions: ($fetch, $store) => {
+		// Params must be annotated with Better Auth's own types — inferred
+		// params emit a .d.ts that fails plugin assignability in consumers on
+		// better-auth >= 1.6.17, collapsing the whole inferred client API.
+		getActions: ($fetch: BetterFetch, $store: ClientStore) => {
 			if (
 				typeof window !== "undefined" &&
 				(options.clearIdentityOnSignOut ?? true) &&

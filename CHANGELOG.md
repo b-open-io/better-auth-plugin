@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.0.92
+
+### Fixed
+- **`sigmaClient`'s `getActions` params are now explicitly annotated with Better Auth's own types** (`$fetch: BetterFetch` from `@better-fetch/fetch`, `$store: ClientStore` from `better-auth/client`), matching first-party plugins. Previously the params were inferred and the emitted `.d.ts` carried widened types that failed `BetterAuthClientPlugin` assignability in consumers on `better-auth` >= 1.6.17 — which silently collapsed the whole inferred client API (`authClient.emailOtp`, `authClient.organization`, etc. vanished from `createAuthClient`'s return type). No runtime change.
+
+### Changed
+- `devDependencies.better-auth` bumped to `^1.6.17` so the published `.d.ts` is built against current types.
+
 ## 0.0.91
 
 ### Breaking
