@@ -1,0 +1,17 @@
+{
+  "schema_version": "1",
+  "generator_schema_version": "1",
+  "manager": "sigma-auth",
+  "agents": [
+    {
+      "source_name": "sigma-auth-guide",
+      "source_path": "agents/sigma-auth-guide.md",
+      "source_version": "1.0.1",
+      "source_hash": "sha256:8957c3d02956c81b5762f0cbee9e0b6ea5206ac85f3c628638dd2469e919d168",
+      "generated_file": "sigma-auth-guide.toml",
+      "generated_hash": "sha256:394793125e12a38ebb6e58f55b62743ec8073d19155797c6592dd6be1c87e249",
+      "agent_name": "sigma_auth_guide",
+      "default_install": true
+    }
+  ]
+}

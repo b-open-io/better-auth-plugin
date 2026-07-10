@@ -6,6 +6,20 @@ Bitcoin-native authentication for Better Auth. Users sign in with their Bitcoin 
 
 Maintained by [Sigma Identity](https://sigmaidentity.com). For support, open an issue on [GitHub](https://github.com/b-open-io/better-auth-plugin/issues).
 
+## AI plugin
+
+The repository also publishes the `sigma-auth` plugin for Claude Code and
+Codex. Both runtimes receive the portable authentication skills. Claude Code
+discovers the canonical Siggy agent directly; Codex users can explicitly run
+the bundled `codex-agent-setup` skill to install Siggy as a regular custom-agent
+file into the current project (the safe default), user scope with `--user`, or
+an explicit directory with `--target`.
+
+The installer never edits global Codex configuration, never symlinks into a
+plugin cache, and preserves unrelated custom agents. Start a **new Codex
+session** after installation, then invoke Siggy with the runtime name
+`sigma_auth_guide`.
+
 ## Features
 
 - **Passwordless from day one** — Bitcoin wallet signatures replace passwords and magic links

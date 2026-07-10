@@ -1,0 +1,35 @@
+{
+  "name": "sigma-auth",
+  "version": "0.0.7",
+  "description": "Sigma Auth implementation skills with an optional Siggy custom-agent adapter for Codex",
+  "author": {
+    "name": "b-open-io",
+    "url": "https://github.com/b-open-io"
+  },
+  "repository": "https://github.com/b-open-io/better-auth-plugin",
+  "keywords": [
+    "sigma",
+    "auth",
+    "bitcoin",
+    "oauth",
+    "better-auth",
+    "bap",
+    "agents",
+    "skills"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "sigma-auth",
+    "shortDescription": "Bitcoin-native authentication for Codex.",
+    "longDescription": "Sigma Identity, Better Auth, BAP, OAuth, device authorization, and authentication-diagnostics skills, plus an explicit installer for the optional Siggy Codex custom agent.",
+    "developerName": "b-open-io",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Skills"
+    ],
+    "websiteURL": "https://github.com/b-open-io/better-auth-plugin",
+    "defaultPrompt": [
+      "Help me implement Sigma Auth safely."
+    ]
+  }
+}
