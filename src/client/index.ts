@@ -1,3 +1,11 @@
+// `@better-fetch/fetch` is a *declared, optional* peer dependency of this
+// package. Better Auth's own `@better-auth/core` peers the same package, so it
+// is present wherever `better-auth` is, but relying on that transitively meant
+// this entry point's `.d.ts` only resolved where the installer flattened it.
+// The types are taken from `@better-fetch/fetch` rather than a `better-auth`
+// re-export deliberately: substituting the re-export breaks assignability of
+// `BetterAuthClientPlugin.getActions`, which is the exact regression fixed in
+// 0.0.92.
 import type { BetterFetch, BetterFetchOption } from "@better-fetch/fetch";
 import type {
 	AuthQueryAtom,

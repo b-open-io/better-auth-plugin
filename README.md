@@ -45,22 +45,81 @@ bun add @sigma-auth/better-auth-plugin
 npm install @sigma-auth/better-auth-plugin
 ```
 
+### Requirements
+
+**Better Auth 1.7 or newer.** Better Auth 1.7 made `account.issuer` a required
+column and moved account identity from `(providerId, accountId)` to
+`(issuer, accountId)`; this package writes and queries that shape and does not
+support the pre-1.7 schema. If you are still on Better Auth 1.6, pin
+`@sigma-auth/better-auth-plugin@0.0.92`.
+
+**Configure the `provider-id` account identity strategy:**
+
+```ts
+betterAuth({ account: { identityStrategy: "provider-id" } });
+```
+
+This package keys Sigma accounts on `local:oauth:sigma`, the deterministic
+namespace Better Auth's own `createOAuthAccountIssuer("sigma")` produces. Under
+the `issuer` strategy Better Auth namespaces a provider by its trusted issuer
+instead, which would not match. See the Migration notes in
+[CHANGELOG.md](./CHANGELOG.md) if you are upgrading a populated 1.6 database.
+
+**Supported database adapters.** The 1.7 account-identity migration is verified
+here against SQL adapters driven by Better Auth's own migration CLI. MongoDB and
+other adapters with no SQL migration connection use Better Auth's manual path and
+are **not** exercised by this project's gates — see the Migration notes in
+[CHANGELOG.md](./CHANGELOG.md) before upgrading a populated database on one.
+
 ### Peer dependencies
 
-Install only what you use:
+`better-auth` and `zod` are **required** peers. Everything else below is an
+*optional* peer, so your package manager will not pull in anything you do not
+ask for — install only what the entry points you import actually need.
+(`bitcoin-auth` is a real dependency of this package and is installed for you.)
 
 ```bash
-# Required for all integrations
-bun add better-auth
+# Required for every entry point (better-auth 1.7 or newer)
+bun add better-auth zod
+```
 
-# Required for server-side token exchange
-bun add bitcoin-auth
+`zod` is a runtime import of `/server`, `/next`, `/payload` and `/provider`, not
+just the provider. It arrives transitively with `better-auth` on a flat install,
+but that is not something to rely on: under pnpm's strict layout or Yarn PnP an
+undeclared transitive package is not resolvable, so it is declared here.
 
-# Required for the provider plugin (running your own auth server)
-bun add @bsv/sdk bsv-bap @neondatabase/serverless zod
+Then, per entry point:
 
-# Required for Payload CMS integration
+```bash
+# ./client — typecheck only
+bun add @better-fetch/fetch
+
+# ./client/sync — typecheck only
+bun add bsv-bap
+
+# ./provider (running your own auth server)
+bun add @bsv/sdk @neondatabase/serverless
+bun add @better-auth/oauth-provider
+
+# ./payload (Payload CMS integration)
 bun add payload-auth
+```
+
+`@better-auth/oauth-provider` is **not** a dependency of this package — install
+it yourself, at a version matching your `better-auth` (1.7.x). Running your own
+auth server needs *both* plugins configured: `sigmaProvider()` adds Bitcoin/BAP
+authentication, and `oauthProvider()` is what actually issues OAuth tokens.
+Without the latter your server authenticates users but cannot issue tokens to
+clients.
+
+```ts
+import { oauthProvider } from "@better-auth/oauth-provider";
+import { sigmaProvider } from "@sigma-auth/better-auth-plugin/provider";
+
+betterAuth({
+  account: { identityStrategy: "provider-id" },
+  plugins: [sigmaProvider(), oauthProvider({ /* ... */ })],
+});
 ```
 
 ## Quick Start

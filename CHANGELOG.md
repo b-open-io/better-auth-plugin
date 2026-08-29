@@ -1,5 +1,129 @@
 # Changelog
 
+## 0.0.93
+
+### Breaking
+- **`zod` is now a required peer dependency, not an optional one.** It is a runtime import of `/server`, `/next`, `/payload` and `/provider` — every server-side entry point, not just the provider as the README claimed. It resolved anyway on flat installs because it is a hard dependency of `@better-auth/core`, but under pnpm's strict layout or Yarn PnP a consumer following the documented install got `ERR_MODULE_NOT_FOUND: Cannot find package 'zod'` on `import ... from "@sigma-auth/better-auth-plugin/server"`. Anyone who already has `better-auth` already has a compatible `zod`; this only makes the existing requirement declared.
+- **Better Auth 1.7 is now the minimum supported version.** `peerDependencies.better-auth` moves from `^1.6.0` to `^1.7.0`. The account bookkeeping in this release is written against the 1.7 `account` schema — `issuer` as a required column and account identity keyed on `(issuer, accountId)` — and there is no pre-1.7 code path. The previous `^1.6.0` range was never exercised by CI, so it was a claim rather than a guarantee. **Consumers still on Better Auth 1.6 should stay on `@sigma-auth/better-auth-plugin@0.0.92`.**
+
+### Fixed
+- **Sign-in no longer fails with `null value in column "issuer" of relation "account"` (Postgres `23502`) on Better Auth 1.7.** Better Auth 1.7 promoted `account.issuer` to core schema — it is required, and account identity moved from a `(providerId, accountId)` unique key to a unique index on `(issuer, accountId)`. Both `createBetterAuthCallbackHandler` (next/) and `sigmaCallbackPlugin` (server/) still wrote the pre-1.7 row shape with no `issuer`, so every user who did not already have a `sigma` account row hit a NOT NULL violation *after* an otherwise successful token exchange. New account rows now carry `issuer: "local:oauth:sigma"`, obtained by calling Better Auth's own `createOAuthAccountIssuer("sigma")`.
+- **The existing-account lookup now queries the full `(issuer, accountId)` identity** instead of matching candidate rows in memory. The previous in-memory match accepted any row with `providerId === "sigma"`, including rows whose `issuer` was a *different*, non-empty value. Under 1.7 such a row is a separate identity, and adopting it overwrote another issuer's `userId` and tokens — a cross-issuer account takeover. Rows that do not carry exactly `local:oauth:sigma` are now never selected and never mutated; a fresh canonical row is created instead, which cannot collide because the unique index is on `(issuer, accountId)`.
+- **The account upsert is now conflict-safe.** The read-then-write was a non-atomic check-then-create: two callbacks for the same subject could both observe no row and both call `create`, and on 1.7 the unique `(issuer, accountId)` index fails one of them *after* the token exchange and the user write. A create that loses the race is now recognised as a uniqueness conflict (Postgres `23505`, MySQL `ER_DUP_ENTRY`/`1062`, SQLite `UNIQUE constraint failed`, Prisma `P2002`, MongoDB `11000`, including errors nested under `cause` or `errors`), the row is re-read, and the update path is taken. An update that reports no affected row is re-read the same way, so a row deleted mid-flight falls back to create rather than being silently skipped. Exhausting the retry budget raises a `SigmaAccountConflictError` (`error.name === "SigmaAccountConflictError"`) instead of leaking a driver error — the sign-in fails loudly rather than the plugin reaching for a row that is not its identity.
+- **The account create call no longer passes an explicit `id`.** Better Auth's adapter documents that a caller-supplied `id` is ignored by default and logs a warning; the adapter generates the primary key.
+- **The Payload callback's session cookie is now signed with an encoding Better Auth accepts.** `createPayloadCallbackHandler` signed the session token with `base64urlnopad` — a 43-character, URL-safe-alphabet, unpadded signature. Better Auth reads its session cookie through better-call's `getSignedCookie`, which rejects the value before it even attempts verification:
+  ```js
+  if (signature.length !== 44 || !signature.endsWith("=")) return null;
+  ```
+  So the callback reported success, set a cookie, and every subsequent session read failed. **This defect pre-dates this release**: it is how `/payload` has always signed, and the `@better-auth/utils` HMAC it previously called produced the byte-identical rejected value. `/next` had the correct implementation and even carried a comment about the 44-character rule; `/payload` never got the same fix. Signing now delegates to Better Auth's own public `makeSignature` (`better-auth/crypto`), which emits padded standard Base64, and a test reads the resulting cookie back through a real `betterAuth()` instance rather than comparing it to another crypto utility.
+- **The shipped entry points no longer import packages this one does not declare.** `./provider` imported `@better-auth/utils/base64` and `@better-auth/utils/hash`, `./payload` imported `@better-auth/core` and `@better-auth/utils/hmac`, and `./client`'s emitted `.d.ts` imported `@better-fetch/fetch`. None of the three was in `dependencies` or `peerDependencies`; they resolved only because Bun and npm flatten `better-auth`'s transitive packages to the top level. Under pnpm's strict layout, Yarn PnP, or any nested install, `./provider` and `./payload` failed with `ERR_MODULE_NOT_FOUND` and `./client` failed to typecheck.
+  - `@better-auth/utils` was **replaced**, not declared. Better Auth exposes no public re-export of `createHash`/`base64Url`/`createHMAC` (`better-auth/crypto` carries password, JWT and envelope helpers only), and declaring a direct dependency on an internal package whose version is pinned to `better-auth`'s own resolution risks a second, skewed copy. `src/utils/webcrypto.ts` reimplements the three helpers on standard Web Crypto in ~30 lines, and `src/utils/webcrypto.test.ts` proves byte-identical output against `@better-auth/utils` (now a devDependency, kept solely as the reference implementation) across every input length and Unicode, plus identical rejection of a zero-length HMAC key. This matters concretely: the hash is the lookup key for `storeTokens: "hashed"` and the HMAC is the session-cookie signature, so a one-bit difference would break every token lookup and every session.
+  - `@better-auth/core` was **replaced**: `AuthContext` is publicly re-exported by `better-auth` itself, so the type identity is unchanged.
+  - `@better-fetch/fetch` was **declared** as an optional peer rather than replaced. `better-auth/client` does re-export `BetterFetch`, but substituting it breaks `BetterAuthClientPlugin.getActions` assignability — the exact regression fixed in 0.0.92 — so the original type source is kept and now declared. Better Auth's own `@better-auth/core` peers the same package.
+
+### Changed
+- Account bookkeeping for both callback entry points is now shared in `src/server/account-record.ts` (`upsertSigmaAccount`), so the `/next` handler and the `/server` callback plugin cannot drift apart again.
+- The issuer value is imported from `better-auth/db` (which re-exports `createOAuthAccountIssuer` from `@better-auth/core/db`) rather than reimplemented locally, so a change to Better Auth's key derivation cannot silently desynchronise this package's account identity. A test pins the resolved value to the documented on-disk string so an upstream format change surfaces as a failing test rather than as duplicated accounts.
+- Added `test` (`bun test`) and `typecheck` (`tsc --noEmit -p tsconfig.test.json`) scripts, wired into `prepublishOnly`. Test files are excluded from the published build.
+- Session-cookie signing is shared in `src/server/session-cookie.ts`. `/next` and `/payload` each hand-rolled it and drifted — one correct, one not — which is the same failure mode the shared `upsertSigmaAccount` was introduced to prevent for account writes. A test asserts there is no second signing site anywhere in `src/`.
+- `/next` no longer imports `node:crypto`. It used it only to compute that signature; the shared helper goes through Better Auth's Web Crypto path, so the entry point no longer pulls a Node-only builtin into a route handler that is frequently deployed to the Edge runtime.
+- Added a publish-surface test (`src/package-surface.test.ts`) that builds and `npm pack`s the real artifact, parses every shipped `.js` and `.d.ts` with TypeScript's own scanner — which sees `import type` and dynamic `import()` and ignores JSDoc — and fails on any bare specifier that is not declared, a Node builtin, or this package itself. It then builds a **separate fixture per entry point**, each containing only the packages that entry point's documented install provides, and checks two things in each: that Node can import it, and that a consumer `tsc` program compiles against its shipped declarations. Three negative controls keep the fixtures honest — an undeclared package must be unreachable, dropping `zod` must break `/server`, and dropping a type-only peer must be caught by the consumer compile even though no runtime import can see it. The previous fixture symlinked every optional peer that happened to exist in the dev workspace, so it could pass while the documented install failed; that is how the `zod` gap survived.
+- **Removed the `@better-auth/oauth-provider` and `@better-auth/passkey` dependencies.** Neither is imported anywhere in `src/`; they were unused runtime dependencies pinned at `^1.6.17`, which meant a consumer installing this package could keep 1.6 provider code resolved alongside a 1.7 core — directly contradicting the 1.7-only claim above. The README and the bundled agent guide already instruct consumers to install `@better-auth/oauth-provider` themselves when running their own OAuth server, so removal is preferred over an unused dependency that constrains someone else's graph. An integration test now asserts this package declares no `@better-auth/*` dependency and that the resolved `better-auth` / `@better-auth/core` pair is a single coherent 1.7 set.
+
+### Migration
+
+Migrate Better Auth to 1.7 **before** upgrading this package.
+
+**Adapter scope for this release.** The path below is the guided SQL workflow, and it is the only one this project has verified. Better Auth routes *adapters with no SQL migration connection* — MongoDB in particular — through a separate manual path; that path is summarised at the end of this section but is **not exercised by this project's gates**. Do not read the MongoDB duplicate-key codes in `isUniqueConstraintViolation` as a statement of tested support: that detector is defensive driver breadth for the conflict-recovery path, not a claim that the 1.7 account-identity migration has been validated on MongoDB.
+
+**1. Use Better Auth's own migration workflow. Do not hand-write the backfill.**
+The [1.7 upgrade guide](https://better-auth.com/docs/guides/1-7-upgrade-guide) states plainly: *"Never apply the 1.7 account schema directly over a populated 1.6 account table. A plain schema migration cannot preserve account identity or resolve collisions because the 1.6 rows have no issuer value."* Run the guided workflow, resolve anything the plan reports as blocked, rehearse against a restored backup, then apply during a window in which no 1.6 process is writing auth data:
+
+```bash
+npx auth upgrade        # moves better-auth and every @better-auth/* package together
+npx auth migrate plan   # reports ready | blocked | up-to-date
+npx auth migrate apply  # only once the plan reports ready
+```
+
+ORM prerequisites the upstream guide lists, which apply before `migrate plan`:
+
+- **Drizzle and Prisma** — run `npx auth generate` first and point the adapter at the generated 1.7 schema, but do **not** apply that schema yourself; the CLI migrates the 1.6 data and schema together. The plan resolves physical table and column names from your Drizzle schema or Prisma model metadata, including `snake_case` and Prisma `@map`. Record the cutover in your ORM migration history afterwards so a later deployment does not reapply it.
+- **Drizzle on SQLite or PostgreSQL** — set the adapter's `transaction` option to `true` so the release migration can run atomically.
+- **MySQL with populated legacy SCIM accounts** — use a transaction-capable migration connection.
+
+**2. Select the `provider-id` account identity strategy.**
+
+```ts
+betterAuth({ account: { identityStrategy: "provider-id" } });
+```
+
+This is what makes existing Sigma rows keep working. Under `provider-id`, `auth migrate apply` backfills each external connection with the deterministic namespace `local:oauth:<encoded providerId>` — for `providerId: "sigma"` that is exactly `local:oauth:sigma`, the value this plugin writes and the only value it will match. No manual backfill of Sigma rows is required.
+
+Under the `issuer` strategy the migration stores a provider's *trusted issuer* instead, so a migrated Sigma row could land on `https://auth.sigmaidentity.com` while this plugin continues to read and write `local:oauth:sigma` — the two would be separate identities and the affected users would get a second account row. If you need `issuer` identity for other providers, treat Sigma account rows as a separately reviewed re-key. (Omitting `identityStrategy` entirely is a deprecated 1.7 compatibility mode that behaves as `issuer` and warns once per auth instance.)
+
+**3. Verify before you deploy this package.** Both queries must return `0`. Substitute your configured physical table and column names if you set `account.fields`; the identifier quoting below is dialect-specific and *must* be matched to your database — under MySQL's default `sql_mode` a double-quoted identifier is a string literal, so a Postgres-style predicate silently matches nothing and reports a false clean bill of health.
+
+Postgres, SQLite, SQL Server:
+
+```sql
+SELECT COUNT(*) FROM account
+WHERE "providerId" = 'sigma'
+  AND ("issuer" IS NULL OR "issuer" <> 'local:oauth:sigma');
+```
+
+MySQL, MariaDB:
+
+```sql
+SELECT COUNT(*) FROM account
+WHERE `providerId` = 'sigma'
+  AND (`issuer` IS NULL OR `issuer` <> 'local:oauth:sigma');
+
+-- MySQL only: the upgrade guide's corruption check. A nonzero result means an
+-- earlier migration silently backfilled empty strings and needs repair, not
+-- just a backfill.
+SELECT COUNT(*) FROM account WHERE `issuer` = '';
+```
+
+A nonzero count means the migration is incomplete: re-run `npx auth migrate plan` rather than deploying. Do not patch the rows by hand.
+
+Rows written by this plugin at <= 0.0.92 only exist on databases that were still on the 1.6 schema — writing them against a 1.7 schema is precisely the `23502` failure this release fixes. On the guided SQL path above they are therefore handled by the 1.6 -> 1.7 migration. They are **not** handled automatically on the manual path below.
+
+**4. MongoDB and other adapters with no SQL migration connection.** Better Auth's guide routes these through its manual path: complete the manual account-identity preparation, apply the 1.7 schema with `npx auth generate` and your own tooling, then deploy the 1.7 packages and configuration together. `auth migrate apply` will not backfill `issuer` for you, so the Sigma rows are yours to migrate.
+
+> These commands are **not covered by this project's test suite** — no MongoDB adapter is exercised by any gate here. Rehearse them against a restored backup in an isolated environment, with authentication writes stopped, before touching production. If you are not prepared to do that, stay on `@sigma-auth/better-auth-plugin@0.0.92` and Better Auth 1.6 until you are.
+
+Find collisions *first* — the compound unique index cannot be created while two documents would resolve to the same identity:
+
+```js
+db.account.aggregate([
+  { $match: { providerId: "sigma" } },
+  { $group: { _id: { issuer: "local:oauth:sigma", accountId: "$accountId" },
+              n: { $sum: 1 }, users: { $addToSet: "$userId" } } },
+  { $match: { n: { $gt: 1 } } },
+]);
+```
+
+Resolve every result by hand before continuing. Then backfill only the documents that have no issuer, and only for this provider:
+
+```js
+db.account.updateMany(
+  { providerId: "sigma", $or: [{ issuer: { $exists: false } }, { issuer: null }, { issuer: "" }] },
+  { $set: { issuer: "local:oauth:sigma" } },
+);
+```
+
+The filter deliberately does **not** touch a document that already has a non-empty `issuer`. Overwriting one would move an account across an issuer boundary, which is the cross-issuer takeover this release fixes in code; leave those for a separately reviewed re-key.
+
+Verify — both must return `0` — then create the compound index:
+
+```js
+db.account.countDocuments({ providerId: "sigma", issuer: { $ne: "local:oauth:sigma" } });
+db.account.countDocuments({ issuer: { $in: [null, ""] } });
+db.account.createIndex({ issuer: 1, accountId: 1 }, { unique: true });
+```
+
+The unique index is not optional. Without it, two concurrent callbacks for the same subject both see no row and both insert, MongoDB accepts both, and the user ends up with duplicate identities — the conflict-recovery path in this release depends on the database rejecting the second write.
+
 ## 0.0.92
 
 ### Fixed

@@ -1,5 +1,3 @@
-import { base64Url } from "@better-auth/utils/base64";
-import { createHash } from "@better-auth/utils/hash";
 import { PublicKey } from "@bsv/sdk";
 import type { Pool } from "@neondatabase/serverless";
 import type { BetterAuthPlugin, User } from "better-auth";
@@ -17,16 +15,16 @@ import {
 } from "better-auth/plugins/organization";
 import { parseAuthToken, verifyAuthToken } from "bitcoin-auth";
 import { z } from "zod";
+import { sha256Base64UrlNoPad } from "../utils/webcrypto.js";
 
 /**
- * Hash a token using SHA-256, matching oauth-provider's storeTokens: "hashed" behavior
+ * Hash a token using SHA-256, matching oauth-provider's storeTokens: "hashed"
+ * behaviour. Uses this package's own Web Crypto helper rather than
+ * `@better-auth/utils`, which is a transitive package of `better-auth` and is
+ * not resolvable under strict (non-flattened) installs.
  */
-const hashToken = async (token: string): Promise<string> => {
-	const hash = await createHash("SHA-256").digest(
-		new TextEncoder().encode(token),
-	);
-	return base64Url.encode(new Uint8Array(hash), { padding: false });
-};
+const hashToken = (token: string): Promise<string> =>
+	sha256Base64UrlNoPad(token);
 
 /**
  * Debug logger that only logs when debug mode is enabled

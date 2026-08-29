@@ -3,14 +3,15 @@
  * Provides ready-to-use route handlers for OAuth callback
  */
 
-import crypto from "node:crypto";
 import type { Auth, BetterAuthOptions } from "better-auth";
 
+import { upsertSigmaAccount } from "../server/account-record.js";
 import {
 	exchangeCodeForTokens,
 	type TokenExchangeError,
 	type TokenExchangeResult,
 } from "../server/index.js";
+import { signSessionCookieValue } from "../server/session-cookie.js";
 
 interface NextRequest {
 	json(): Promise<unknown>;
@@ -584,81 +585,25 @@ export function createBetterAuthCallbackHandler<
 				userId,
 			);
 
-			// Create or update account record for multi-provider support
+			// Create or update account record for multi-provider support.
+			// Keyed on (issuer, accountId) — Better Auth 1.7's account identity
+			// and the key of its unique index. Conflict-safe: a create that loses
+			// the race to a concurrent callback is retried as an update.
 			const sigmaAccountId = result.user.sub;
-			const existingAccount = await adapter.findOne<{
-				id: string;
-				userId: string;
-			}>({
-				model: "account",
-				where: [
-					{ field: "providerId", value: "sigma" },
-					{ field: "accountId", value: sigmaAccountId },
-				],
-			});
-
-			const now = new Date();
 			const accessTokenExpiresAt = result.expires_in
 				? new Date(Date.now() + result.expires_in * 1000)
 				: null;
 
-			if (existingAccount) {
-				// Update existing account with fresh tokens AND reparent to the
-				// current userId. If the email-based user lookup resolved a
-				// different user than the one the sigma account was previously
-				// attached to (e.g. because the Sigma token now returns a real
-				// email that matches an existing magic-link user, where before
-				// the lookup fell through to a synthetic `<sub>@sigma.local`
-				// email), the `accounts.userId` FK must follow the identity or
-				// it becomes orphaned against the user that now holds the
-				// session.
-				if (existingAccount.userId !== userId) {
-					console.log(
-						"[Sigma BA Callback] Reparenting sigma account %s from user %s to user %s",
-						existingAccount.id,
-						existingAccount.userId,
-						userId,
-					);
-				}
-				await adapter.update({
-					model: "account",
-					where: [{ field: "id", value: existingAccount.id }],
-					update: {
-						userId,
-						accessToken: result.access_token,
-						refreshToken: result.refresh_token,
-						idToken: result.id_token,
-						accessTokenExpiresAt,
-						updatedAt: now,
-					},
-				});
-				console.log(
-					"[Sigma BA Callback] Updated account record:",
-					existingAccount.id,
-				);
-			} else {
-				// Create new account record
-				const accountId =
-					typeof ctx.generateId === "function"
-						? ctx.generateId({ model: "account", size: 32 })
-						: crypto.randomUUID();
-				await adapter.create({
-					model: "account",
-					data: {
-						id: accountId,
-						accountId: sigmaAccountId,
-						providerId: "sigma",
-						userId,
-						accessToken: result.access_token,
-						refreshToken: result.refresh_token,
-						idToken: result.id_token,
-						accessTokenExpiresAt,
-						createdAt: now,
-						updatedAt: now,
-					},
-				});
-				console.log("[Sigma BA Callback] Created account record:", accountId);
-			}
+			await upsertSigmaAccount({
+				adapter,
+				accountId: sigmaAccountId,
+				userId,
+				accessToken: result.access_token,
+				refreshToken: result.refresh_token,
+				idToken: result.id_token,
+				accessTokenExpiresAt,
+				logPrefix: "[Sigma BA Callback]",
+			});
 
 			// Create session using internal adapter
 			const session = await internalAdapter.createSession(
@@ -689,14 +634,14 @@ export function createBetterAuthCallbackHandler<
 			const cookieAttrs =
 				sessionTokenConfig.attributes || sessionTokenConfig.options || {};
 
-			// Sign the session token with HMAC-SHA256
-			// MUST use standard base64 (not base64url) to match better-call's
-			// getSignedCookie() which expects exactly 44 chars ending with "="
-			const signature = crypto
-				.createHmac("sha256", ctx.secret)
-				.update(session.token)
-				.digest("base64");
-			const signedToken = `${session.token}.${signature}`;
+			// Signed through the shared helper, which delegates to Better Auth's
+			// own `makeSignature`. The encoding is load-bearing: better-call's
+			// `getSignedCookie` rejects anything that is not 44 characters of
+			// padded standard Base64. See `../server/session-cookie.ts`.
+			const signedToken = await signSessionCookieValue(
+				session.token,
+				ctx.secret,
+			);
 
 			const cookiePath = (cookieAttrs?.path as string) ?? "/";
 			const cookieSecure = (cookieAttrs?.secure as boolean) ?? true;

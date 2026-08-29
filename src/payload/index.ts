@@ -12,12 +12,18 @@
  * ```
  */
 
-import type { AuthContext } from "@better-auth/core";
+// `AuthContext` is imported from `better-auth` rather than `@better-auth/core`:
+// the latter is a transitive package of `better-auth`, not a declared
+// dependency of this one, so the type only resolved where the installer
+// happened to flatten it. `better-auth`'s root entry re-exports it
+// (`export * from "@better-auth/core"`).
+import type { AuthContext } from "better-auth";
 import {
 	exchangeCodeForTokens,
 	type TokenExchangeError,
 	type TokenExchangeResult,
 } from "../server/index.js";
+import { signSessionCookieValue } from "../server/session-cookie.js";
 
 /**
  * Next.js request interface (minimal typing for compatibility)
@@ -337,20 +343,17 @@ export function createPayloadCallbackHandler(config: PayloadCallbackConfig) {
 			const cookieOptions = ctx.authCookies?.sessionToken?.attributes || {};
 			const secret = ctx.secret;
 
-			// Sign the session token the same way Better Auth does (value.signature)
-			let signedValue = sessionToken;
-			try {
-				const { createHMAC } = await import("@better-auth/utils/hmac");
-				const signature = await createHMAC("SHA-256", "base64urlnopad").sign(
-					secret,
-					sessionToken,
-				);
-				signedValue = `${sessionToken}.${signature}`;
-			} catch {
-				console.warn(
-					"[Sigma Payload Callback] Could not sign cookie, using unsigned value",
-				);
-			}
+			// Sign the session token the same way Better Auth does
+			// (`<token>.<signature>`), via the shared helper. This used to sign
+			// with `base64urlnopad`, which better-call's `getSignedCookie`
+			// rejects outright — the callback reported success and every
+			// subsequent session read failed. See `../server/session-cookie.ts`.
+			// Fails closed: Better Auth rejects an unsigned token outright, so a
+			// fallback here would return 200 with a cookie that cannot
+			// authenticate — the OAuth code already consumed and a session row
+			// already created, but the user not signed in. Let the outer handler
+			// surface the failure so the caller can retry.
+			const signedValue = await signSessionCookieValue(sessionToken, secret);
 
 			// Build Set-Cookie header directly on the response
 			// Using next/headers cookies().set() doesn't reliably merge into Response.json()

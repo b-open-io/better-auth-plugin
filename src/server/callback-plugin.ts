@@ -3,6 +3,7 @@ import { APIError, createAuthEndpoint } from "better-auth/api";
 import { setSessionCookie } from "better-auth/cookies";
 import { z } from "zod";
 import type { BAPProfile } from "../types/index.js";
+import { upsertSigmaAccount } from "./account-record.js";
 import { exchangeCodeForTokens } from "./index.js";
 
 /**
@@ -209,69 +210,26 @@ export function sigmaCallbackPlugin(
 						email,
 					);
 
-					// 6. Create/update account record
+					// 6. Create/update account record.
+					// Keyed on (issuer, accountId) — Better Auth 1.7's account
+					// identity and the key of its unique index. Conflict-safe: a
+					// create that loses the race to a concurrent callback is
+					// retried as an update.
 					const sigmaAccountId = result.user.sub;
-					const accountsByAccountId = await adapter.findMany<{
-						id: string;
-						providerId: string;
-						userId: string;
-					}>({
-						model: "account",
-						where: [{ field: "accountId", value: sigmaAccountId }],
-					});
-					const existingAccount = accountsByAccountId.find(
-						(a) => a.providerId === "sigma",
-					);
-					const now = new Date();
 					const accessTokenExpiresAt = result.expires_in
 						? new Date(Date.now() + result.expires_in * 1000)
 						: undefined;
 
-					if (existingAccount) {
-						// Reparent the sigma account row to the currently-resolved
-						// user if it was previously attached to a different user.
-						// This can happen when the Sigma token now returns a real
-						// email that matches an existing magic-link user, where
-						// before the email was synthesized as `<sub>@sigma.local`
-						// and attached to a different user row. Without reparenting,
-						// `accounts.userId` is orphaned against the user that now
-						// holds the session.
-						if (existingAccount.userId !== user.id) {
-							console.log(
-								"[Sigma Callback Plugin] Reparenting sigma account %s from user %s to user %s",
-								existingAccount.id,
-								existingAccount.userId,
-								user.id,
-							);
-						}
-						await adapter.update({
-							model: "account",
-							where: [{ field: "id", value: existingAccount.id }],
-							update: {
-								userId: user.id,
-								accessToken: result.access_token,
-								refreshToken: result.refresh_token,
-								idToken: result.id_token,
-								...(accessTokenExpiresAt && { accessTokenExpiresAt }),
-								updatedAt: now,
-							},
-						});
-					} else {
-						await adapter.create({
-							model: "account",
-							data: {
-								accountId: sigmaAccountId,
-								providerId: "sigma",
-								userId: user.id,
-								accessToken: result.access_token,
-								refreshToken: result.refresh_token,
-								idToken: result.id_token,
-								...(accessTokenExpiresAt && { accessTokenExpiresAt }),
-								createdAt: now,
-								updatedAt: now,
-							},
-						});
-					}
+					await upsertSigmaAccount({
+						adapter,
+						accountId: sigmaAccountId,
+						userId: user.id,
+						accessToken: result.access_token,
+						refreshToken: result.refresh_token,
+						idToken: result.id_token,
+						accessTokenExpiresAt,
+						logPrefix: "[Sigma Callback Plugin]",
+					});
 
 					// 7. Create session
 					const session = await internalAdapter.createSession(user.id);
