@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.94 (unreleased)
+
+### Added
+- **`sigmaProvider({ organizations: { ensureOnEnrollment } })`** controls whether the provider writes the `organization` and `member` rows for a BAP identity during sign-up / sign-in enrollment. It defaults to `true`, so existing consumers are unchanged. Set it to `false` when the application creates the organization after its own profile row — sigma-auth now gives `organization.id` a foreign key onto a profile row it registers later in the request, and the plugin's early write violated that constraint. With the option off both enrollment call sites skip the write entirely (no existence probe either) and emit a single debug line, `organization creation delegated to the application`.
+
 ## 0.0.93
 
 ### Breaking

@@ -736,6 +736,9 @@ export const auth = betterAuth({
       enableSubscription: true,
 
       debug: process.env.NODE_ENV === "development",
+
+      // Let the application create the organization itself
+      organizations: { ensureOnEnrollment: false },
     }),
 
     // BAP identities map to organizations (one org per identity)
@@ -743,6 +746,10 @@ export const auth = betterAuth({
   ],
 });
 ```
+
+### `organizations.ensureOnEnrollment`
+
+By default the provider writes the `organization` and `member` rows for a BAP identity itself while enrolling a user, during sign-up and sign-in. That default is `true`, so setting nothing keeps the existing behaviour. Set it to `false` when the application creates the organization after its own profile row, e.g. sigma-auth, where `organization.id` carries a foreign key onto a profile the application writes later in the flow — with the option off the plugin performs no organization or member write at all and logs one debug line instead.
 
 The provider plugin intercepts `POST /oauth2/token` to validate the Bitcoin-signed `X-Auth-Token` header — verifying the signature pubkey matches the `memberPubkey` registered for the OAuth client — and to update the user's name and avatar from their selected BAP profile once the token exchange succeeds.
 
