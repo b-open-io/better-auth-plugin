@@ -140,6 +140,29 @@ export interface SigmaProviderOptions {
 	 * @default false
 	 */
 	disableImplicitSignUp?: boolean;
+
+	/**
+	 * Organization behaviour during sign-up / sign-in enrollment.
+	 */
+	organizations?: SigmaOrganizationsOptions;
+}
+
+/**
+ * Organization behaviour of the provider plugin during enrollment.
+ */
+export interface SigmaOrganizationsOptions {
+	/**
+	 * Whether the plugin writes the `organization` and `member` rows for a BAP
+	 * identity while enrolling the user (sign-up / sign-in).
+	 *
+	 * Set to `false` when the application creates the organization itself —
+	 * for example when `organization.id` references a row the application only
+	 * writes later in the flow, so an early write from here would violate a
+	 * foreign key.
+	 *
+	 * @default true
+	 */
+	ensureOnEnrollment?: boolean;
 }
 
 /**
@@ -157,18 +180,20 @@ export interface BapOrganizationOptions {
  * Each BAP identity maps to an organization with the user as sole owner.
  * Handles race conditions (duplicate key) gracefully.
  */
+export interface BapOrganizationAdapter {
+	findOne: <T>(opts: {
+		model: string;
+		where: { field: string; value: string }[];
+	}) => Promise<T | null>;
+	create: (opts: {
+		model: string;
+		data: Record<string, unknown>;
+		forceAllowId?: boolean;
+	}) => Promise<unknown>;
+}
+
 async function ensureBapOrganization(
-	adapter: {
-		findOne: <T>(opts: {
-			model: string;
-			where: { field: string; value: string }[];
-		}) => Promise<T | null>;
-		create: (opts: {
-			model: string;
-			data: Record<string, unknown>;
-			forceAllowId?: boolean;
-		}) => Promise<unknown>;
-	},
+	adapter: BapOrganizationAdapter,
 	debug: DebugLogger,
 	bapId: string,
 	userId: string,
@@ -216,6 +241,28 @@ async function ensureBapOrganization(
 		}
 		throw error;
 	}
+}
+
+/**
+ * Enrollment-time entry point for {@link ensureBapOrganization}.
+ *
+ * Applies the `organizations.ensureOnEnrollment` gate: when the application
+ * owns organization creation the plugin writes nothing here and records a
+ * single debug line so operators can see the delegation in logs.
+ */
+export async function ensureBapOrganizationOnEnrollment(
+	organizations: SigmaOrganizationsOptions | undefined,
+	adapter: BapOrganizationAdapter,
+	debug: DebugLogger,
+	bapId: string,
+	userId: string,
+	userName: string | null,
+) {
+	if (organizations?.ensureOnEnrollment === false) {
+		debug.log("organization creation delegated to the application");
+		return;
+	}
+	await ensureBapOrganization(adapter, debug, bapId, userId, userName);
 }
 
 /**
@@ -928,7 +975,8 @@ export const sigmaProvider = (
 									`BAP ID resolved and registered: ${bapId.substring(0, 20)}...`,
 								);
 
-								await ensureBapOrganization(
+								await ensureBapOrganizationOnEnrollment(
+									options?.organizations,
 									ctx.context.adapter,
 									debug,
 									bapId,
@@ -1020,7 +1068,8 @@ export const sigmaProvider = (
 						// sent a bapId (new identity not yet on-chain), ensure the org exists.
 						const clientBapId = ctx.body?.bapId;
 						if (clientBapId) {
-							await ensureBapOrganization(
+							await ensureBapOrganizationOnEnrollment(
+								options?.organizations,
 								ctx.context.adapter,
 								debug,
 								clientBapId,
