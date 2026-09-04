@@ -341,7 +341,7 @@ export const sigmaProvider = (
 				fields: {
 					// `pubkey` stays on user only because sigma-auth's sign-in
 					// path still looks users up by it; full removal is gated
-					// on a backfill of profile.member_pubkey for active users
+					// on a backfill of profile.account_pubkey for active users
 					// + a sign-in flow rewrite to query profile-side. Tracked
 					// separately. Until then, the parasitic "overwrite on
 					// every consent" writes have been removed (see hooks
@@ -472,9 +472,9 @@ export const sigmaProvider = (
 								bap_id: string;
 								name: string;
 								image: string | null;
-								member_pubkey: string | null;
+								account_pubkey: string | null;
 							}>(
-								"SELECT bap_id, name, image, member_pubkey FROM profile WHERE bap_id = $1 AND user_id = $2 LIMIT 1",
+								"SELECT bap_id, name, image, account_pubkey FROM profile WHERE bap_id = $1 AND user_id = $2 LIMIT 1",
 								[referenceId, userId],
 							);
 
@@ -496,8 +496,8 @@ export const sigmaProvider = (
 								}
 								// Update user record with profile data. Only user-level
 								// fields (name, image) — never copy per-BAP attributes
-								// like member_pubkey onto the user row. Per-BAP data is
-								// served fresh from profile.member_pubkey via the OIDC
+								// like account_pubkey onto the user row. Per-BAP data is
+								// served fresh from profile.account_pubkey via the OIDC
 								// userinfo claims, not cached here.
 								await ctx.context.adapter.update({
 									model: "user",
@@ -888,12 +888,12 @@ export const sigmaProvider = (
 
 						let user = users[0] as UserWithPubkey | undefined;
 
-						// If not found by user.pubkey, check profile table for member_pubkey
+						// If not found by user.pubkey, check profile table for account_pubkey
 						if (!user && options?.getPool) {
 							const pool = options.getPool();
 							// Use pool.query() directly to avoid connect/release pattern
 							const profileResult = await pool.query<{ user_id: string }>(
-								"SELECT user_id FROM profile WHERE member_pubkey = $1 LIMIT 1",
+								"SELECT user_id FROM profile WHERE account_pubkey = $1 LIMIT 1",
 								[pubkey],
 							);
 
@@ -992,7 +992,7 @@ export const sigmaProvider = (
 										bap_id: string;
 										name: string;
 										image: string | null;
-										member_pubkey: string | null;
+										account_pubkey: string | null;
 									}>;
 								};
 
@@ -1003,9 +1003,9 @@ export const sigmaProvider = (
 										bap_id: string;
 										name: string;
 										image: string | null;
-										member_pubkey: string | null;
+										account_pubkey: string | null;
 									}>(
-										"SELECT bap_id, name, image, member_pubkey FROM profile WHERE bap_id = $1 AND user_id = $2 LIMIT 1",
+										"SELECT bap_id, name, image, account_pubkey FROM profile WHERE bap_id = $1 AND user_id = $2 LIMIT 1",
 										[selectedBapId, user.id],
 									);
 								} else {
@@ -1014,9 +1014,9 @@ export const sigmaProvider = (
 										bap_id: string;
 										name: string;
 										image: string | null;
-										member_pubkey: string | null;
+										account_pubkey: string | null;
 									}>(
-										"SELECT bap_id, name, image, member_pubkey FROM profile WHERE user_id = $1 AND is_primary = true LIMIT 1",
+										"SELECT bap_id, name, image, account_pubkey FROM profile WHERE user_id = $1 AND is_primary = true LIMIT 1",
 										[user.id],
 									);
 								}
@@ -1039,8 +1039,8 @@ export const sigmaProvider = (
 										);
 									}
 									// Update user record with profile data. Only user-level
-									// fields (name, image) — per-BAP member_pubkey lives
-									// in profile.member_pubkey and is served from there
+									// fields (name, image) — per-BAP account_pubkey lives
+									// in profile.account_pubkey and is served from there
 									// via OIDC userinfo, never cached on the user row.
 									await ctx.context.adapter.update({
 										model: "user",
