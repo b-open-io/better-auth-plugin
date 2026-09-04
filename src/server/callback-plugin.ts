@@ -3,6 +3,7 @@ import { APIError, createAuthEndpoint } from "better-auth/api";
 import { setSessionCookie } from "better-auth/cookies";
 import { z } from "zod";
 import type { BAPProfile } from "../types/index.js";
+import { resolveAccountPrivateKey } from "../utils/env.js";
 import { upsertSigmaAccount } from "./account-record.js";
 import { exchangeCodeForTokens } from "./index.js";
 
@@ -11,7 +12,7 @@ import { exchangeCodeForTokens } from "./index.js";
  * All values fall back to environment variables if not provided
  */
 export interface SigmaCallbackOptions {
-	/** Account private key (WIF) for signing token exchange. Default: SIGMA_MEMBER_PRIVATE_KEY env */
+	/** Account private key (WIF) for signing token exchange. Default: SIGMA_ACCOUNT_PRIVATE_KEY env */
 	accountPrivateKey?: string;
 	/** OAuth client ID. Default: NEXT_PUBLIC_SIGMA_CLIENT_ID env */
 	clientId?: string;
@@ -69,11 +70,12 @@ export function sigmaCallbackPlugin(
 				},
 				async (ctx) => {
 					// 1. Read config from options or env vars
-					const accountPrivateKey =
-						options?.accountPrivateKey || process.env.SIGMA_MEMBER_PRIVATE_KEY;
+					const accountPrivateKey = resolveAccountPrivateKey(
+						options?.accountPrivateKey,
+					);
 					if (!accountPrivateKey) {
 						throw new APIError("INTERNAL_SERVER_ERROR", {
-							message: "SIGMA_MEMBER_PRIVATE_KEY not configured",
+							message: "SIGMA_ACCOUNT_PRIVATE_KEY not configured",
 						});
 					}
 

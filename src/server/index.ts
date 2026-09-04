@@ -74,7 +74,7 @@ export interface OAuth2TokenResponse {
  *   code: "authorization_code",
  *   redirectUri: "https://myapp.com/callback",
  *   clientId: "my-app",
- *   accountPrivateKey: process.env.SIGMA_MEMBER_PRIVATE_KEY,
+ *   accountPrivateKey: process.env.SIGMA_ACCOUNT_PRIVATE_KEY,
  * });
  * ```
  */

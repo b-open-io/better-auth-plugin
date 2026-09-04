@@ -24,6 +24,7 @@ import {
 	type TokenExchangeResult,
 } from "../server/index.js";
 import { signSessionCookieValue } from "../server/session-cookie.js";
+import { resolveAccountPrivateKey } from "../utils/env.js";
 
 /**
  * Next.js request interface (minimal typing for compatibility)
@@ -74,7 +75,7 @@ export interface PayloadCallbackConfig {
 	/** OAuth client ID (default: NEXT_PUBLIC_SIGMA_CLIENT_ID) */
 	clientId?: string;
 
-	/** Account private key for signing (default: SIGMA_MEMBER_PRIVATE_KEY env) */
+	/** Account private key for signing (default: SIGMA_ACCOUNT_PRIVATE_KEY env) */
 	accountPrivateKey?: string;
 
 	/** Callback path (default: /auth/sigma/callback) */
@@ -177,16 +178,17 @@ export function createPayloadCallbackHandler(config: PayloadCallbackConfig) {
 			}
 
 			// Get configuration from env or config
-			const accountPrivateKey =
-				config.accountPrivateKey || process.env.SIGMA_MEMBER_PRIVATE_KEY;
+			const accountPrivateKey = resolveAccountPrivateKey(
+				config.accountPrivateKey,
+			);
 			if (!accountPrivateKey) {
 				console.error(
-					"[Sigma Payload Callback] SIGMA_MEMBER_PRIVATE_KEY not configured",
+					"[Sigma Payload Callback] SIGMA_ACCOUNT_PRIVATE_KEY not configured",
 				);
 				return Response.json(
 					{
 						error: "Server configuration error",
-						details: "Missing SIGMA_MEMBER_PRIVATE_KEY",
+						details: "Missing SIGMA_ACCOUNT_PRIVATE_KEY",
 					},
 					{ status: 500 },
 				);

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.99
+
+### Changed
+- **Account signing key env is `SIGMA_ACCOUNT_PRIVATE_KEY`.** Matches `accountPubkey` / `account_pubkey` everywhere else (the config field was already `accountPrivateKey`; only the env fallback kept the old name). `SIGMA_MEMBER_PRIVATE_KEY` still works as a fallback with a one-time deprecation warning, so existing deployments do not break. No API change.
+
 ## 0.0.98
 
 ### Added

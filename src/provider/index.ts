@@ -632,7 +632,7 @@ export const sigmaProvider = (
 								throw new APIError("UNAUTHORIZED", {
 									error: "invalid_client",
 									error_description:
-										"Signature pubkey does not match registered member key - check SIGMA_MEMBER_PRIVATE_KEY matches the public key registered for this OAuth client",
+										"Signature pubkey does not match registered member key - check SIGMA_ACCOUNT_PRIVATE_KEY matches the public key registered for this OAuth client",
 								});
 							}
 
@@ -750,7 +750,7 @@ export const sigmaProvider = (
 								throw new APIError("UNAUTHORIZED", {
 									error: "invalid_client",
 									error_description:
-										"Signature pubkey does not match registered member key - check SIGMA_MEMBER_PRIVATE_KEY matches the public key registered for this OAuth client",
+										"Signature pubkey does not match registered member key - check SIGMA_ACCOUNT_PRIVATE_KEY matches the public key registered for this OAuth client",
 								});
 							}
 
