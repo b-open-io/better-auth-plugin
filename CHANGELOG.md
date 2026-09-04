@@ -1,9 +1,14 @@
 # Changelog
 
+## 0.0.100
+
+### Changed
+- **Removed the `SIGMA_MEMBER_PRIVATE_KEY` fallback.** 0.0.99 kept the old name working with a deprecation warning; that was a mistake — two names for one secret is ambiguity, and the rename exists to end ambiguity. The variable is `SIGMA_ACCOUNT_PRIVATE_KEY`, period. 0.0.99 is deprecated on npm; skip it. No API change.
+
 ## 0.0.99
 
 ### Changed
-- **Account signing key env is `SIGMA_ACCOUNT_PRIVATE_KEY`.** Matches `accountPubkey` / `account_pubkey` everywhere else (the config field was already `accountPrivateKey`; only the env fallback kept the old name). `SIGMA_MEMBER_PRIVATE_KEY` still works as a fallback with a one-time deprecation warning, so existing deployments do not break. No API change.
+- **Account signing key env is `SIGMA_ACCOUNT_PRIVATE_KEY`.** Matches `accountPubkey` / `account_pubkey` everywhere else (the config field was already `accountPrivateKey`; only the env fallback kept the old name). Superseded by 0.0.100, which removes the legacy fallback. No API change.
 
 ## 0.0.98
 
