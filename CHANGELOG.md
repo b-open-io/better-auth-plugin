@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.97
+
+### Fixed
+- **Raw profile queries use `account_pubkey`.** 0.0.96 renamed the `oauthClient` schema field but left four raw `pool.query` strings (token after-hook select, sign-up lookup, selected/primary profile selects) on `profile.member_pubkey`, which sigma-auth migration 035 drops. Post-035 every `/sign-up/sigma` 500s and the token-hook name/image sync silently stops. Requires the post-035 schema; no fallback.
+
 ## 0.0.96
 
 ### Changed
