@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.95
+
+### Fixed
+- **Token-exchange client auth reads `accountPubkey` with `memberPubkey` fallback.** sigma-auth OPL-4419 renames the OAuth client signing key; the provider was the one reader still on the old name, failing every `x-auth-token` exchange with `invalid_client` once the rename lands. Works against pre- and post-rename databases with no flag day.
+
 ## 0.0.94
 
 ### Added
