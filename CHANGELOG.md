@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.96
+
+### Changed
+- **Client signing key is `accountPubkey`, no fallback.** The `memberPubkey` legacy read is gone — versions are the gate, so code assumes the schema its version requires. Pair with the sigma-auth migration that renames the columns.
+
 ## 0.0.95
 
 ### Fixed

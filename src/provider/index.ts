@@ -74,10 +74,8 @@ interface BaseOAuthClient {
  * OAuth client with Sigma-specific extensions
  */
 interface OAuthClient extends BaseOAuthClient {
-	/** Account public key for signature verification. `memberPubkey` is the
-	 * legacy name for the same value, still read as a fallback. */
+	/** Account public key for signature verification. */
 	accountPubkey?: string;
-	memberPubkey?: string; // Legacy name for accountPubkey (DB column name)
 	ownerBapId: string; // BAP ID of the client owner
 }
 
@@ -391,10 +389,6 @@ export const sigmaProvider = (
 						type: "string",
 						required: false,
 					},
-					memberPubkey: {
-						type: "string",
-						required: false,
-					},
 				},
 			},
 		},
@@ -583,9 +577,7 @@ export const sigmaProvider = (
 							}
 
 							// Verify the pubkey from signature matches the client's registered key
-							// (accountPubkey, falling back to the legacy memberPubkey).
-							const expectedPubkey =
-								client.accountPubkey ?? client.memberPubkey;
+							const expectedPubkey = client.accountPubkey;
 							if (!expectedPubkey) {
 								throw new APIError("UNAUTHORIZED", {
 									error: "invalid_client",
@@ -703,12 +695,11 @@ export const sigmaProvider = (
 								});
 							}
 
-							const expectedPubkey =
-								client.accountPubkey ?? client.memberPubkey;
+							const expectedPubkey = client.accountPubkey;
 							if (!expectedPubkey) {
 								throw new APIError("UNAUTHORIZED", {
 									error: "invalid_client",
-									error_description: `Client ${clientId} has no memberPubkey configured`,
+									error_description: `Client ${clientId} has no account pubkey configured`,
 								});
 							}
 
