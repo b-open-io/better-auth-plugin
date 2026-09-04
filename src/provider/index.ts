@@ -267,6 +267,48 @@ export async function ensureBapOrganizationOnEnrollment(
 }
 
 /**
+ * Columns of sigma-auth's public.profile that this provider's raw SQL
+ * depends on. Checked once per process before the first profile query so
+ * a schema drift (e.g. an unapplied rename migration) fails closed with
+ * an actionable message instead of surfacing as Postgres 42703s deep in
+ * signup and token flows.
+ */
+const REQUIRED_PROFILE_COLUMNS = [
+	"user_id",
+	"bap_id",
+	"name",
+	"image",
+	"account_pubkey",
+	"is_primary",
+];
+
+let profileSchemaVerified = false;
+
+/** Reset the schema-verification cache. Test-only. */
+export function resetProfileSchemaVerification(): void {
+	profileSchemaVerified = false;
+}
+
+export async function assertProfileSchema(pool: Pool): Promise<void> {
+	if (profileSchemaVerified) {
+		return;
+	}
+	const result = await pool.query<{ column_name: string }>(
+		"SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'profile'",
+	);
+	const present = new Set(result.rows.map((row) => row.column_name));
+	const missing = REQUIRED_PROFILE_COLUMNS.filter(
+		(column) => !present.has(column),
+	);
+	if (missing.length > 0) {
+		throw new Error(
+			`@sigma-auth/better-auth-plugin requires profile columns [${REQUIRED_PROFILE_COLUMNS.join(", ")}]; missing [${missing.join(", ")}]. Apply sigma-auth's pending migrations (bun scripts/db/migrate.ts) before serving traffic with this plugin version.`,
+		);
+	}
+	profileSchemaVerified = true;
+}
+
+/**
  * Create the organization plugin configured for BAP identities
  *
  * BAP identities are personal - each organization has exactly one owner (the user).
@@ -466,6 +508,7 @@ export const sigmaProvider = (
 
 							// Update user record with selected identity's profile data
 							const pool = options.getPool();
+							await assertProfileSchema(pool);
 							// Use pool.query() directly to avoid connect/release pattern
 							// This prevents "Pool release event triggered outside of request scope" warning
 							const profileResult = await pool.query<{
@@ -891,6 +934,7 @@ export const sigmaProvider = (
 						// If not found by user.pubkey, check profile table for account_pubkey
 						if (!user && options?.getPool) {
 							const pool = options.getPool();
+							await assertProfileSchema(pool);
 							// Use pool.query() directly to avoid connect/release pattern
 							const profileResult = await pool.query<{ user_id: string }>(
 								"SELECT user_id FROM profile WHERE account_pubkey = $1 LIMIT 1",
@@ -963,6 +1007,7 @@ export const sigmaProvider = (
 						// Resolve BAP ID if resolver is provided
 						if (options?.resolveBAPId && options?.getPool) {
 							const pool = options.getPool();
+							await assertProfileSchema(pool);
 
 							const bapId = await options.resolveBAPId(
 								pool,

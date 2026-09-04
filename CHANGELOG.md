@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.98
+
+### Added
+- **Fail-closed profile schema assertion.** Before the first raw `profile` query per process, the provider checks `information_schema` for the columns its SQL depends on (`user_id`, `bap_id`, `name`, `image`, `account_pubkey`, `is_primary`) and throws naming the missing columns plus the migration command. A schema drift like the 035 rename now fails loudly at first use instead of surfacing as Postgres 42703s deep in signup and token flows. No API change; no sigma-auth bump required.
+
 ## 0.0.97
 
 ### Fixed
