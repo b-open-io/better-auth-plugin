@@ -23,6 +23,7 @@ export interface SyncResult {
 }
 
 type WalletAwareIdentity = {
+	getAccountKey?: () => { toWif(): string };
 	getWalletRoot?: (path?: string) => { toWif(): string };
 	getPathDerivedKey?: (path: string) => { toWif(): string };
 	rootPath: string;
@@ -38,6 +39,10 @@ function getMemberWif(bap: BAP, bapId: string): string {
 	}
 
 	const walletAwareIdentity = identity as unknown as WalletAwareIdentity;
+
+	if (typeof walletAwareIdentity.getAccountKey === "function") {
+		return walletAwareIdentity.getAccountKey().toWif();
+	}
 
 	if (typeof walletAwareIdentity.getWalletRoot === "function") {
 		return walletAwareIdentity
