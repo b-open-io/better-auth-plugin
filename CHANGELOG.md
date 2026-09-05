@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.0.101
+
+### Fixed
+- Prefer the canonical `getAccountKey()` during identity sync while retaining compatible accessors for older BAP versions. Export only the selected account key and exact BAP ID.
+
+### Added
+- Conformance tests covering canonical account roots, identity binding, and account-only sync payloads.
+
 ## 0.0.100
 
 ### Changed
