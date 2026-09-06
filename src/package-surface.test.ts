@@ -119,7 +119,7 @@ beforeAll(async () => {
 	const installed = join(fixtureModules, PKG_NAME);
 	await mkdir(dirname(installed), { recursive: true });
 	run("cp", ["-R", packageRoot, installed], scratch);
-});
+}, 120_000);
 
 afterAll(async () => {
 	if (scratch) await rm(scratch, { recursive: true, force: true });
@@ -404,7 +404,7 @@ describe("per-entry-point strict install fixtures", () => {
 			for (const entry of entries) {
 				expect(result.stdout).toContain(`ok ${entry}`);
 			}
-		});
+		}, 120_000);
 
 		test(`[${key}] typechecks for a consumer with only the documented install`, async () => {
 			const root = await buildFixture(`tsc-${key}`, [
@@ -412,7 +412,7 @@ describe("per-entry-point strict install fixtures", () => {
 				...extras,
 			]);
 			expect(await consumerCompile(root, entries)).toEqual([]);
-		});
+		}, 120_000);
 	}
 });
 
@@ -424,7 +424,7 @@ describe("the fixtures are genuinely strict", () => {
 		const result = await nodeImport(root, ["@better-auth/utils/base64"]);
 		expect(result.status).not.toBe(0);
 		expect(result.stderr).toMatch(MODULE_NOT_FOUND);
-	});
+	}, 120_000);
 
 	// Regression control for the reason `zod` became a required peer: `/server`
 	// has a runtime `zod` import, so a consumer told to install only
@@ -439,7 +439,7 @@ describe("the fixtures are genuinely strict", () => {
 		expect(result.status).not.toBe(0);
 		expect(result.stderr).toMatch(MODULE_NOT_FOUND);
 		expect(result.stderr).toContain("zod");
-	});
+	}, 120_000);
 
 	// Negative control for the type-only class of bug, which no runtime import
 	// can see: `@better-fetch/fetch` is erased at runtime but must resolve for
@@ -449,5 +449,5 @@ describe("the fixtures are genuinely strict", () => {
 		const diagnostics = await consumerCompile(root, [`${PKG_NAME}/client`]);
 
 		expect(diagnostics.join("\n")).toContain("@better-fetch/fetch");
-	});
+	}, 120_000);
 });

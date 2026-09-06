@@ -1,6 +1,6 @@
 /**
  * Integration coverage for {@link upsertSigmaAccount} against the *real*
- * Better Auth adapter factory and the real 1.7 account schema, rather than the
+ * Better Auth adapter factory and the real 1.7.3 account schema, rather than the
  * hand-written fake in `account-record.test.ts`.
  *
  * Two things are proven here that a fake cannot prove:
@@ -9,7 +9,7 @@
  *    and this package declares no `@better-auth/*` dependency of its own that
  *    could pin an older member of that family into a consumer's lockfile.
  * 2. The row shape written by `upsertSigmaAccount` survives Better Auth's own
- *    `transformInput`, and the `(issuer, accountId)` lookup is evaluated by a
+ *    `transformInput`, and the `(providerId, accountId)` lookup is evaluated by a
  *    real adapter's where-clause engine.
  */
 
@@ -17,7 +17,7 @@ import { describe, expect, test } from "bun:test";
 import { memoryAdapter } from "better-auth/adapters/memory";
 import { getAuthTables } from "better-auth/db";
 
-import { SIGMA_ACCOUNT_ISSUER, upsertSigmaAccount } from "./account-record.js";
+import { upsertSigmaAccount } from "./account-record.js";
 
 type Json = Record<string, unknown>;
 
@@ -65,40 +65,27 @@ describe("better-auth package graph", () => {
 		const manifest = await readJson("package.json");
 		const peers = (manifest.peerDependencies ?? {}) as Record<string, string>;
 		const range = peers["better-auth"];
-		expect(range).toBe("^1.7.0");
+		expect(range).toBe("^1.7.3");
 
 		const installed = await readJson("node_modules/better-auth/package.json");
 		expect(satisfiesCaret(String(installed.version), String(range))).toBe(true);
 	});
 
-	test("resolves @better-auth/core to the same minor as better-auth", async () => {
+	test("resolves @better-auth/core to the exact same version as better-auth", async () => {
 		const betterAuth = await readJson("node_modules/better-auth/package.json");
 		const core = await readJson("node_modules/@better-auth/core/package.json");
-		const minor = (value: unknown) =>
-			String(value).split(".").slice(0, 2).join(".");
-
-		expect(minor(core.version)).toBe(minor(betterAuth.version));
-		expect(minor(betterAuth.version)).toBe("1.7");
+		expect(core.version).toBe(betterAuth.version);
+		expect(satisfiesCaret(String(betterAuth.version), "^1.7.3")).toBe(true);
 	});
 });
 
-describe("the real Better Auth 1.7 account schema", () => {
+describe("the real Better Auth 1.7.3 account schema", () => {
 	const account = getAuthTables({}).account;
 
-	test("declares issuer as a required field", () => {
-		expect(account?.fields.issuer).toBeDefined();
-		expect(account?.fields.issuer?.required).toBe(true);
-	});
-
-	test("declares the unique (issuer, accountId) compound index", () => {
-		expect(account?.indexes).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({
-					fields: ["issuer", "accountId"],
-					unique: true,
-				}),
-			]),
-		);
+	test("requires providerId and accountId without an issuer field", () => {
+		expect(account?.fields.providerId?.required).toBe(true);
+		expect(account?.fields.accountId?.required).toBe(true);
+		expect(account?.fields).not.toHaveProperty("issuer");
 	});
 });
 
@@ -127,7 +114,7 @@ const params = {
 };
 
 describe("upsertSigmaAccount against a real Better Auth 1.7 adapter", () => {
-	test("persists issuer through the adapter's transformInput", async () => {
+	test("persists canonical identity through the adapter's transformInput", async () => {
 		const { db, adapter } = createRealAdapter();
 
 		const result = await upsertSigmaAccount({ adapter, ...params });
@@ -135,7 +122,7 @@ describe("upsertSigmaAccount against a real Better Auth 1.7 adapter", () => {
 		expect(result.created).toBe(true);
 		expect(db.account).toHaveLength(1);
 		const row = db.account[0] ?? {};
-		expect(row.issuer).toBe(SIGMA_ACCOUNT_ISSUER);
+		expect(row).not.toHaveProperty("issuer");
 		expect(row.providerId).toBe("sigma");
 		expect(row.accountId).toBe("sigma-sub");
 		expect(row.userId).toBe("user-1");
@@ -146,8 +133,7 @@ describe("upsertSigmaAccount against a real Better Auth 1.7 adapter", () => {
 	});
 
 	// Control for the test above: the same adapter drops fields the schema does
-	// not know about. `issuer` surviving therefore means it is a genuine field
-	// of the installed schema, not that this adapter passes everything through.
+	// not know about, including the obsolete issuer field.
 	test("the same adapter drops a field the schema does not declare", async () => {
 		const { db, adapter } = createRealAdapter();
 
@@ -156,7 +142,7 @@ describe("upsertSigmaAccount against a real Better Auth 1.7 adapter", () => {
 			data: {
 				accountId: "control",
 				providerId: "sigma",
-				issuer: SIGMA_ACCOUNT_ISSUER,
+				issuer: "local:oauth:sigma",
 				userId: "user-1",
 				createdAt: params.now,
 				updatedAt: params.now,
@@ -164,7 +150,7 @@ describe("upsertSigmaAccount against a real Better Auth 1.7 adapter", () => {
 			},
 		});
 
-		expect(db.account[0]).toHaveProperty("issuer");
+		expect(db.account[0]).not.toHaveProperty("issuer");
 		expect(db.account[0]).not.toHaveProperty("notAColumn");
 	});
 
@@ -201,15 +187,14 @@ describe("upsertSigmaAccount against a real Better Auth 1.7 adapter", () => {
 
 	// The finding-1 guarantee, re-proven against a real adapter's own where
 	// evaluation rather than the fake's.
-	test("does not match or mutate a same-accountId row under another issuer", async () => {
+	test("does not match or mutate a same-accountId row under another provider", async () => {
 		const { db, adapter } = createRealAdapter();
 
 		await adapter.create({
 			model: "account",
 			data: {
 				accountId: "sigma-sub",
-				providerId: "sigma",
-				issuer: "https://auth.sigmaidentity.com",
+				providerId: "other-provider",
 				userId: "other-user",
 				accessToken: "foreign-token",
 				createdAt: params.now,
@@ -223,7 +208,28 @@ describe("upsertSigmaAccount against a real Better Auth 1.7 adapter", () => {
 		expect(result.created).toBe(true);
 		expect(db.account).toHaveLength(2);
 		expect(JSON.stringify(db.account[0])).toBe(foreignBefore);
-		expect(db.account[1]?.issuer).toBe(SIGMA_ACCOUNT_ISSUER);
+		expect(db.account[1]?.providerId).toBe("sigma");
 		expect(db.account[1]?.userId).toBe("user-1");
+	});
+	test("updates a retained legacy issuer row without duplicating or rewriting it", async () => {
+		const { db, adapter } = createRealAdapter();
+		db.account.push({
+			id: "legacy-1",
+			providerId: "sigma",
+			accountId: params.accountId,
+			userId: params.userId,
+			issuer: "local:oauth:sigma",
+			createdAt: params.now,
+			updatedAt: params.now,
+		});
+		const result = await upsertSigmaAccount({ adapter, ...params });
+		expect(result).toEqual({
+			id: "legacy-1",
+			created: false,
+			reparented: false,
+		});
+		expect(db.account).toHaveLength(1);
+		expect(db.account[0]?.issuer).toBe("local:oauth:sigma");
+		expect(db.account[0]?.accessToken).toBe("at");
 	});
 });

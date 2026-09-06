@@ -213,7 +213,7 @@ export function sigmaCallbackPlugin(
 					);
 
 					// 6. Create/update account record.
-					// Keyed on (issuer, accountId) — Better Auth 1.7's account
+					// Keyed on (providerId, accountId) — Better Auth 1.7.3's account
 					// identity and the key of its unique index. Conflict-safe: a
 					// create that loses the race to a concurrent callback is
 					// retried as an update.

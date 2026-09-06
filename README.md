@@ -47,29 +47,26 @@ npm install @sigma-auth/better-auth-plugin
 
 ### Requirements
 
-**Better Auth 1.7 or newer.** Better Auth 1.7 made `account.issuer` a required
-column and moved account identity from `(providerId, accountId)` to
-`(issuer, accountId)`; this package writes and queries that shape and does not
-support the pre-1.7 schema. If you are still on Better Auth 1.6, pin
-`@sigma-auth/better-auth-plugin@0.0.92`.
+**Better Auth 1.7.3 or newer within v1.** This package reads and writes Sigma
+accounts by `(providerId, accountId)`, with `providerId: "sigma"`. It does not
+write or query the obsolete `issuer` column, and it does not require an
+`account.identityStrategy` setting. Better Auth 1.7.0–1.7.2 is unsupported.
 
-**Configure the `provider-id` account identity strategy:**
+If your database applied the 1.7.0–1.7.2 issuer schema, follow the
+[official upgrade cleanup](https://better-auth.com/docs/guides/1-7-upgrade-guide)
+through your application's migration tooling before deploying this version:
+remove the issuer NOT NULL requirement and the issuer/accountId unique index.
+Retain the issuer column and its values for a reversible rollout. This plugin
+performs no DDL or data backfill. Do not deploy while a required issuer column
+still lacks a default, because Better Auth no longer writes that field.
 
-```ts
-betterAuth({ account: { identityStrategy: "provider-id" } });
-```
-
-This package keys Sigma accounts on `local:oauth:sigma`, the deterministic
-namespace Better Auth's own `createOAuthAccountIssuer("sigma")` produces. Under
-the `issuer` strategy Better Auth namespaces a provider by its trusted issuer
-instead, which would not match. See the Migration notes in
-[CHANGELOG.md](./CHANGELOG.md) if you are upgrading a populated 1.6 database.
-
-**Supported database adapters.** The 1.7 account-identity migration is verified
-here against SQL adapters driven by Better Auth's own migration CLI. MongoDB and
-other adapters with no SQL migration connection use Better Auth's manual path and
-are **not** exercised by this project's gates — see the Migration notes in
-[CHANGELOG.md](./CHANGELOG.md) before upgrading a populated database on one.
+Retain a unique constraint on `(providerId, accountId)` for concurrent callback
+safety. Better Auth 1.7.3's core schema does not generate that compound index;
+verify it in your application's schema workflow, resolve any collisions through
+an owner-reviewed migration, and rehearse against fresh and existing databases.
+The tests cover the real Better Auth memory adapter's field transformations and
+identity filters, plus simulated driver conflicts; they do not certify a live
+SQL or MongoDB migration.
 
 ### Peer dependencies
 
