@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.102
+
+### Fixed
+- Support Better Auth 1.7.3 account identity using providerId and accountId, removing the retired issuer API. Preserve callback concurrency and existing identity boundaries.
+- Document the required reversible cleanup for databases upgraded through 1.7.0–1.7.2.
+
 ## 0.0.101
 
 ### Fixed

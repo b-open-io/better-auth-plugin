@@ -1,11 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { createOAuthAccountIssuer } from "better-auth/db";
 
 import {
 	type AccountRecordAdapter,
 	DEFAULT_UPSERT_ATTEMPTS,
 	isUniqueConstraintViolation,
-	SIGMA_ACCOUNT_ISSUER,
 	SIGMA_PROVIDER_ID,
 	SigmaAccountConflictError,
 	upsertSigmaAccount,
@@ -97,7 +95,6 @@ function sigmaRow(overrides: Partial<Row> = {}): Row {
 		userId: "user-1",
 		accountId: "sigma-sub",
 		providerId: SIGMA_PROVIDER_ID,
-		issuer: SIGMA_ACCOUNT_ISSUER,
 		...overrides,
 	};
 }
@@ -116,24 +113,11 @@ const baseParams = {
 function pgUniqueViolation(): Error {
 	return Object.assign(
 		new Error(
-			'duplicate key value violates unique constraint "account_issuer_accountId_key"',
+			'duplicate key value violates unique constraint "account_providerId_accountId_key"',
 		),
 		{ code: "23505" },
 	);
 }
-
-describe("SIGMA_ACCOUNT_ISSUER", () => {
-	test("is Better Auth's own synthetic OAuth issuer for the sigma provider", () => {
-		expect(SIGMA_PROVIDER_ID).toBe("sigma");
-		expect(SIGMA_ACCOUNT_ISSUER).toBe(createOAuthAccountIssuer("sigma"));
-	});
-
-	// Canary: the value is persisted, so an upstream format change is a data
-	// migration for consumers, not a transparent refactor.
-	test("still resolves to the documented on-disk value", () => {
-		expect(SIGMA_ACCOUNT_ISSUER).toBe("local:oauth:sigma");
-	});
-});
 
 describe("isUniqueConstraintViolation", () => {
 	const matching: Array<[string, unknown]> = [
@@ -179,26 +163,27 @@ describe("isUniqueConstraintViolation", () => {
 });
 
 describe("upsertSigmaAccount — identity lookup", () => {
-	test("queries the full (issuer, accountId) account identity", async () => {
+	test("queries the full (providerId, accountId) account identity", async () => {
 		const { adapter, findOneCalls } = createFakeAdapter();
 		await upsertSigmaAccount({ adapter, ...baseParams });
 
 		expect(findOneCalls).toHaveLength(1);
 		expect(findOneCalls[0]?.model).toBe("account");
 		expect(findOneCalls[0]?.where).toEqual([
-			{ field: "issuer", value: "local:oauth:sigma" },
+			{ field: "providerId", value: "sigma" },
 			{ field: "accountId", value: "sigma-sub" },
 		]);
 	});
 
-	// Finding 1: a row sharing the accountId under a *different* issuer is a
+	// Finding 1: a row sharing the accountId under a *different* provider is a
 	// different identity. It must not be selected, updated, or reparented.
-	test("never selects or mutates a row belonging to another issuer", async () => {
+	test("never selects or mutates a row belonging to another provider", async () => {
 		const { adapter, rows, createCalls, updateCalls } = createFakeAdapter([
 			sigmaRow({
 				id: "foreign-1",
 				userId: "other-user",
-				issuer: "https://idp.example.com",
+				providerId: "other-provider",
+				issuer: "local:oauth:sigma",
 				accessToken: "foreign-token",
 			}),
 		]);
@@ -212,36 +197,37 @@ describe("upsertSigmaAccount — identity lookup", () => {
 
 		const untouched = rows.find((row) => row.id === "foreign-1");
 		expect(untouched?.userId).toBe("other-user");
-		expect(untouched?.issuer).toBe("https://idp.example.com");
+		expect(untouched?.providerId).toBe("other-provider");
+		expect(untouched?.issuer).toBe("local:oauth:sigma");
 		expect(untouched?.accessToken).toBe("foreign-token");
 	});
 
-	// The same rule for the case the old `providerId` fallback used to catch: a
-	// row that is "sigma" by providerId but whose issuer was backfilled to some
-	// other value during the Better Auth 1.7 migration.
-	test("does not adopt a sigma-providerId row backfilled with a non-canonical issuer", async () => {
-		const { adapter, rows, createCalls } = createFakeAdapter([
-			sigmaRow({ id: "legacy-1", userId: "other-user", issuer: "local:sigma" }),
-		]);
-
-		const result = await upsertSigmaAccount({ adapter, ...baseParams });
-
-		expect(result.created).toBe(true);
-		expect(rows.find((row) => row.id === "legacy-1")?.userId).toBe(
-			"other-user",
-		);
-		expect(createCalls[0]?.data.issuer).toBe("local:oauth:sigma");
-	});
+	for (const issuer of [undefined, null, "local:oauth:sigma", "local:sigma"]) {
+		test(`updates the canonical provider identity with retained issuer ${issuer}`, async () => {
+			const { adapter, rows, createCalls } = createFakeAdapter([
+				sigmaRow({ id: "legacy-1", issuer }),
+			]);
+			const result = await upsertSigmaAccount({ adapter, ...baseParams });
+			expect(result).toEqual({
+				id: "legacy-1",
+				created: false,
+				reparented: false,
+			});
+			expect(createCalls).toHaveLength(0);
+			expect(rows[0]?.issuer).toBe(issuer);
+			expect(rows[0]?.accessToken).toBe("at");
+		});
+	}
 });
 
 describe("upsertSigmaAccount — create path", () => {
-	test("writes the full 1.7 account identity", async () => {
+	test("writes the canonical account identity without issuer", async () => {
 		const { adapter, createCalls } = createFakeAdapter();
 		const result = await upsertSigmaAccount({ adapter, ...baseParams });
 
 		expect(createCalls).toHaveLength(1);
 		const data = createCalls[0]?.data ?? {};
-		expect(data.issuer).toBe("local:oauth:sigma");
+		expect(data).not.toHaveProperty("issuer");
 		expect(data.providerId).toBe("sigma");
 		expect(data.accountId).toBe("sigma-sub");
 		expect(data.userId).toBe("user-1");
@@ -334,7 +320,7 @@ describe("upsertSigmaAccount — update path", () => {
 
 describe("upsertSigmaAccount — concurrency", () => {
 	// Finding 2: a concurrent callback wins the create race, so the unique
-	// (issuer, accountId) index rejects ours. Recovery must not fail the
+	// (providerId, accountId) index rejects ours. Recovery must not fail the
 	// sign-in, and must converge on the winner's row rather than duplicating it.
 	test("recovers from a unique violation on create by updating the winner's row", async () => {
 		const hooks: FakeAdapterHooks = {};

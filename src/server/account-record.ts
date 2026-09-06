@@ -1,49 +1,18 @@
 /**
- * Shared bookkeeping for the `account` row that links a Better Auth user to a
- * Sigma identity.
- *
- * Better Auth 1.7 promoted `account.issuer` to core schema: it is a required
- * column, and the uniqueness constraint on accounts moved from
- * `(providerId, accountId)` to a unique index on `(issuer, accountId)`. Writing
- * the pre-1.7 shape against a 1.7 database fails with a NOT NULL violation on
- * `issuer` (Postgres SQLSTATE 23502) after an otherwise successful token
- * exchange.
- *
- * This module targets Better Auth >= 1.7 only. Consumers still on 1.6 should
- * stay on `@sigma-auth/better-auth-plugin@0.0.92`.
- *
- * Both the `/next` route handler and the `/server` callback plugin funnel their
- * account writes through {@link upsertSigmaAccount} so the two stay in sync.
+ * Shared Sigma account bookkeeping for Better Auth >= 1.7.3.
+ * Account identity is (providerId, accountId); issuer is no longer a core field.
+ * Both callback entry points use this helper. Consumers that applied the
+ * 1.7.0–1.7.2 issuer schema must complete the official cleanup before upgrading.
  */
-
-// Imported rather than reimplemented: `createOAuthAccountIssuer` is the exact
-// function Better Auth uses to key OAuth accounts that carry no issuer of their
-// own. A local copy of another package's key-derivation formula silently drifts
-// the moment upstream changes it, and a drifted issuer means a duplicated —
-// or, worse, a mismatched — identity. `better-auth/db` re-exports the binding
-// from `@better-auth/core/db`; importing it through `better-auth` keeps the
-// dependency surface limited to the declared peer dependency instead of relying
-// on `@better-auth/core` being hoisted into a resolvable position.
-import { createOAuthAccountIssuer } from "better-auth/db";
 
 /** Provider id used for every Sigma-linked account row. */
 export const SIGMA_PROVIDER_ID = "sigma";
-
-/**
- * The issuer Better Auth itself assigns to the `sigma` provider.
- *
- * Together with `accountId` (the Sigma `sub`) this is the account's identity
- * under Better Auth 1.7 and the key of its unique index.
- */
-export const SIGMA_ACCOUNT_ISSUER: string =
-	createOAuthAccountIssuer(SIGMA_PROVIDER_ID);
 
 /** The subset of an `account` row this module reads. */
 export interface SigmaAccountRow {
 	id: string;
 	userId: string;
 	providerId?: string | null;
-	issuer?: string | null;
 }
 
 type AccountWhere = {
@@ -202,38 +171,14 @@ export const DEFAULT_UPSERT_ATTEMPTS = 3;
 /**
  * Creates or updates the `sigma` account row for a user.
  *
- * ## Identity
+ * The canonical lookup uses (providerId, accountId). A different provider's
+ * row is never selected even when it shares the same subject. Retained legacy
+ * issuer values do not participate in identity and are never changed here.
  *
- * The lookup is keyed on the full Better Auth 1.7 account identity —
- * `(issuer, accountId)` — and is pushed down into the query rather than being
- * resolved in memory. That matters for correctness, not just tidiness: a row
- * that shares this `accountId` but carries a *different* issuer is a different
- * identity, and must never be selected here. Matching it would mean
- * overwriting another issuer's `userId` and tokens, i.e. moving account
- * ownership across an issuer boundary. Such a row is left completely untouched;
- * a fresh row is created under `local:oauth:sigma` instead, which cannot
- * collide because the unique index is on `(issuer, accountId)`.
- *
- * There is deliberately no `providerId === "sigma"` fallback for rows with an
- * empty issuer. On a 1.7 schema `issuer` is a required column, so such rows do
- * not exist; operators migrating a populated `account` table must backfill
- * Sigma rows with exactly `local:oauth:sigma` for them to keep matching.
- *
- * ## Concurrency
- *
- * Two callbacks for the same subject can interleave. The check-then-create is
- * therefore treated as optimistic: a create that loses the race to the unique
- * `(issuer, accountId)` index is caught, the row is re-read, and the update
- * path is taken instead. An update that reports no affected row is re-read the
- * same way, so a row deleted mid-flight falls back to the create path rather
- * than being silently skipped.
- *
- * If the conflict is not resolvable — for example a database that still carries
- * a legacy unique index on `(providerId, accountId)`, where a mis-backfilled
- * row blocks the canonical insert but never matches the canonical read — the
- * attempts are exhausted and {@link SigmaAccountConflictError} is thrown. That
- * is deliberate: failing the sign-in is preferable to reaching for the blocking
- * row and overwriting an identity that is not ours.
+ * Consumers must retain a unique constraint on (providerId, accountId) to
+ * arbitrate concurrent creates. A unique violation triggers a bounded re-read
+ * and update of the winning row; disappearing rows are retried as creates.
+ * Unresolved conflicts fail closed after the configured attempt budget.
  */
 export async function upsertSigmaAccount(
 	params: UpsertSigmaAccountParams,
@@ -255,9 +200,9 @@ export async function upsertSigmaAccount(
 		tokenFields.accessTokenExpiresAt = params.accessTokenExpiresAt;
 	}
 
-	// Matches exactly one row: the unique index on (issuer, accountId).
+	// Matches exactly one row: the unique index on (providerId, accountId).
 	const identityWhere: AccountWhere[] = [
-		{ field: "issuer", value: SIGMA_ACCOUNT_ISSUER },
+		{ field: "providerId", value: SIGMA_PROVIDER_ID },
 		{ field: "accountId", value: accountId },
 	];
 	const findExisting = () =>
@@ -278,8 +223,8 @@ export async function upsertSigmaAccount(
 			// where before the lookup fell through to a synthetic
 			// `<sub>@sigma.local` email. Without reparenting, `account.userId` is
 			// orphaned against the user that now holds the session. This only ever
-			// moves a row within the *same* identity — `(local:oauth:sigma, sub)` —
-			// so it cannot take over another issuer's account.
+			// moves a row within the *same* identity — `(sigma, sub)` —
+			// so it cannot take over another provider's account.
 			const reparented = existing.userId !== userId;
 			if (reparented) {
 				console.log(
@@ -331,7 +276,6 @@ export async function upsertSigmaAccount(
 				data: {
 					accountId,
 					providerId: SIGMA_PROVIDER_ID,
-					issuer: SIGMA_ACCOUNT_ISSUER,
 					userId,
 					...tokenFields,
 					createdAt: now,

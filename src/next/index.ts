@@ -589,7 +589,7 @@ export function createBetterAuthCallbackHandler<
 			);
 
 			// Create or update account record for multi-provider support.
-			// Keyed on (issuer, accountId) — Better Auth 1.7's account identity
+			// Keyed on (providerId, accountId) — Better Auth 1.7.3's account identity
 			// and the key of its unique index. Conflict-safe: a create that loses
 			// the race to a concurrent callback is retried as an update.
 			const sigmaAccountId = result.user.sub;
