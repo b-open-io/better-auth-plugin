@@ -1,6 +1,6 @@
 {
   "name": "sigma-auth",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "Sigma Auth implementation skills with an optional Siggy custom-agent adapter for Codex",
   "author": {
     "name": "b-open-io",
@@ -30,6 +30,8 @@
     "websiteURL": "https://github.com/b-open-io/better-auth-plugin",
     "defaultPrompt": [
       "Help me implement Sigma Auth safely."
-    ]
+    ],
+    "composerIcon": "./assets/icon.png",
+    "logo": "./assets/logo.png"
   }
 }
